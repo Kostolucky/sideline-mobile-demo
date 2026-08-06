@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -17,9 +17,14 @@ import { PressableScale } from "@/components/ui/pressable-scale";
 import { Text } from "@/components/ui/text";
 import { useDemoState } from "@/lib/demo/use-demo";
 import { getConversationDetail } from "@/lib/demo/store";
+import { TIMINGS } from "@/lib/demo/timings";
+import { followUpReply, tokenize } from "@/lib/calls/chat-reply";
+
+/** Brand green at low alpha — the tint used for own-message surfaces. */
+const BRAND_WASH = "rgba(73,248,96,0.14)";
 
 /**
- * Suggested prompts, shown above the composer.
+ * Suggested prompts, shown above the composer until the conversation starts.
  *
  * Two, deliberately. The reference design carries several generic meeting
  * prompts; the only ones that matter after a sales call are the two follow-ups
@@ -27,16 +32,24 @@ import { getConversationDetail } from "@/lib/demo/store";
  */
 const SUGGESTIONS = ["Write a follow-up email", "Write a follow-up text"];
 
+interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+}
+
 /**
  * "Chat with note" — ask a question about a call.
  *
- * A SHELL. Nothing here answers anything yet: the composer accepts text and
- * the suggestions are inert. It exists so the surface can be shown and agreed
- * on before any of it is wired up.
+ * SCRIPTED, NOT INTELLIGENT. There is no model here. Whatever you send, the
+ * assistant pauses as if thinking and then writes out the follow-up for this
+ * call, word by word. The text is the call's own `customer_follow_up_draft`, so
+ * what appears is genuinely about that conversation — which is what makes the
+ * illusion hold when someone actually reads it.
  *
- * Pushed onto the stack rather than presented as a sheet, so the back chevron
- * behaves the way the design implies — it returns to the call the chat was
- * opened from.
+ * The reveal is deliberate rather than instant: a wall of text appearing at
+ * once reads as canned, whereas watching it being written reads as generated.
+ * Both delays live in `timings.ts`.
  */
 export default function ChatWithNoteScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -45,10 +58,82 @@ export default function ChatWithNoteScreen() {
   const state = useDemoState();
 
   const [draft, setDraft] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  /** True from the moment a message is sent until the last word lands. */
+  const [generating, setGenerating] = useState(false);
+  /** The assistant has started writing — the "Generating…" line gives way. */
+  const [streaming, setStreaming] = useState(false);
+
+  const scrollRef = useRef<ScrollView>(null);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const detail = id ? getConversationDetail(id, state) : null;
   const title = detail?.call.name ?? "Call";
-  const canSend = draft.trim().length > 0;
+
+  // Nothing should keep ticking after the screen goes away.
+  useEffect(() => {
+    const pending = timers.current;
+    return () => {
+      for (const t of pending) clearTimeout(t);
+    };
+  }, []);
+
+  const send = useCallback(
+    (body: string) => {
+      const text = body.trim();
+      if (!text || !detail || generating) return;
+
+      const stamp = Date.now();
+      setMessages((prev) => [
+        ...prev,
+        { id: `u-${stamp}`, role: "user", text },
+      ]);
+      setDraft("");
+      setGenerating(true);
+      setStreaming(false);
+
+      const reply = followUpReply(detail);
+      const tokens = tokenize(reply);
+      const assistantId = `a-${stamp}`;
+      const { thinkingMs, tokenMs } = TIMINGS.chat;
+
+      // Think first, then reveal one token at a time. Timers rather than a
+      // single interval, so each step is independently cancellable on unmount.
+      timers.current.push(
+        setTimeout(() => {
+          setStreaming(true);
+          setMessages((prev) => [
+            ...prev,
+            { id: assistantId, role: "assistant", text: "" },
+          ]);
+
+          tokens.forEach((_, i) => {
+            timers.current.push(
+              setTimeout(
+                () => {
+                  const shown = tokens.slice(0, i + 1).join("");
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantId ? { ...m, text: shown } : m,
+                    ),
+                  );
+                  if (i === tokens.length - 1) {
+                    setGenerating(false);
+                    setStreaming(false);
+                  }
+                },
+                tokenMs * (i + 1),
+              ),
+            );
+          });
+        }, thinkingMs),
+      );
+    },
+    [detail, generating],
+  );
+
+  const hasConversation = messages.length > 0;
+  const canSend = draft.trim().length > 0 && !generating;
 
   return (
     <KeyboardAvoidingView
@@ -78,8 +163,34 @@ export default function ChatWithNoteScreen() {
         </View>
       </View>
 
-      {/* Empty until there's a conversation to show. */}
-      <View style={styles.thread} />
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.thread}
+        onContentSizeChange={() =>
+          scrollRef.current?.scrollToEnd({ animated: true })
+        }
+        keyboardShouldPersistTaps="handled"
+      >
+        {messages.map((m) =>
+          m.role === "user" ? (
+            <View key={m.id} style={styles.userRow}>
+              <View style={styles.userBubble}>
+                <Text variant="body">{m.text}</Text>
+              </View>
+            </View>
+          ) : (
+            <View key={m.id} style={styles.assistantRow}>
+              <Text variant="body">{m.text}</Text>
+            </View>
+          ),
+        )}
+
+        {generating && !streaming ? (
+          <Text variant="body" tone="muted" style={styles.generating}>
+            Generating…
+          </Text>
+        ) : null}
+      </ScrollView>
 
       <View
         style={[
@@ -87,25 +198,29 @@ export default function ChatWithNoteScreen() {
           { paddingBottom: Math.max(spacing.lg, insets.bottom) },
         ]}
       >
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.suggestions}
-          keyboardShouldPersistTaps="handled"
-        >
-          {SUGGESTIONS.map((label) => (
-            <PressableScale
-              key={label}
-              onPress={() => {}}
-              activeScale={0.97}
-              accessibilityRole="button"
-              accessibilityLabel={label}
-              style={styles.chip}
-            >
-              <Text variant="label">{label}</Text>
-            </PressableScale>
-          ))}
-        </ScrollView>
+        {/* Once the conversation has started, the prompts have served their
+            purpose and the composer is the thing to reach for. */}
+        {!hasConversation ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.suggestions}
+            keyboardShouldPersistTaps="handled"
+          >
+            {SUGGESTIONS.map((label) => (
+              <PressableScale
+                key={label}
+                onPress={() => send(label)}
+                activeScale={0.97}
+                accessibilityRole="button"
+                accessibilityLabel={label}
+                style={styles.chip}
+              >
+                <Text variant="label">{label}</Text>
+              </PressableScale>
+            ))}
+          </ScrollView>
+        ) : null}
 
         <View style={styles.composerRow}>
           <TextInput
@@ -118,7 +233,7 @@ export default function ChatWithNoteScreen() {
             style={styles.input}
           />
           <PressableScale
-            onPress={() => {}}
+            onPress={() => send(draft)}
             disabled={!canSend}
             accessibilityRole="button"
             accessibilityLabel="Send"
@@ -154,7 +269,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 72,
   },
   title: { textAlign: "center" },
-  thread: { flex: 1 },
+  thread: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl,
+    gap: spacing.xl,
+  },
+  userRow: { alignItems: "flex-end" },
+  userBubble: {
+    maxWidth: "88%",
+    backgroundColor: BRAND_WASH,
+    borderRadius: radius.xl,
+    borderBottomRightRadius: radius.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  // The assistant's reply is plain text, not a bubble — it is long-form
+  // writing meant to be read and copied, not a chat quip.
+  assistantRow: { paddingRight: spacing.sm },
+  generating: { fontStyle: "italic" },
   footer: { paddingHorizontal: spacing.lg, gap: spacing.md },
   suggestions: { gap: spacing.sm, paddingHorizontal: 2 },
   chip: {

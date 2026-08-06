@@ -19,6 +19,19 @@ export const TIMINGS = {
   },
 
   /**
+   * "Chat with note" — how long the assistant appears to think before the
+   * first word, and how fast the reply then streams in.
+   *
+   * `tokenMs` is per token, and whitespace counts as a token, so a word lands
+   * roughly every 2× this. Fast enough to read along with, slow enough to look
+   * like it is being written rather than pasted.
+   */
+  chat: {
+    thinkingMs: 900,
+    tokenMs: 26,
+  },
+
+  /**
    * A scripted coaching message arrives this long after the feed is first
    * shown, so an unread badge visibly appears during a demo rather than being
    * there from the start. Set `enabled: false` to switch the surprise off.
