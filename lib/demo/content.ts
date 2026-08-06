@@ -163,6 +163,19 @@ export const PEOPLE: DemoPerson[] = [
 export const ADMIN_PERSON_ID: PersonId = "u-dana";
 export const REP_PERSON_ID: PersonId = "u-marcus";
 
+/**
+ * WHO THE APP BOOTS AS — the hard-coded "current user".
+ *
+ * Flip this to `REP_PERSON_ID` to launch straight into the regular-user
+ * experience: only their own calls, and no rep filter on the Calls screen.
+ * It can also be changed at runtime on the Account screen ("Viewing as"),
+ * which is the faster way to show both sides during a demo.
+ *
+ * There is deliberately no second `currentUser` object anywhere — this
+ * constant and the persona in the store are the only source of truth.
+ */
+export const DEFAULT_PERSONA_ID: PersonId = ADMIN_PERSON_ID;
+
 export function personById(id: string): DemoPerson | undefined {
   return PEOPLE.find((p) => p.id === id);
 }

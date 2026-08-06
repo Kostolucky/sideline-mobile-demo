@@ -9,8 +9,13 @@ import { Text } from "@/components/ui/text";
 import { AppHeader } from "@/components/sideline/app-header";
 import { bottomNavPadding } from "@/components/sideline/bottom-nav";
 import { ConversationRow } from "@/components/sideline/conversation-row";
-import { ScopeSwitch } from "@/components/sideline/scope-switch";
-import { filterByScope, type FeedScope } from "@/lib/calls/scope";
+import { RepFilter } from "@/components/sideline/rep-filter";
+import {
+  ALL_REPS,
+  filterByRep,
+  repFilterEmptyMessage,
+  type RepSelection,
+} from "@/lib/calls/rep-filter";
 import { useSession } from "@/lib/auth";
 import { groupByDate } from "@/lib/calls/grouping";
 import { useDemoState } from "@/lib/demo/use-demo";
@@ -40,10 +45,12 @@ export default function CallsScreen() {
   const state = useDemoState();
 
   const [refreshing, setRefreshing] = useState(false);
-  const [scope, setScope] = useState<FeedScope>("all");
+  // Filter state is deliberately local and unpersisted — it resets with the
+  // screen, which is the right default for a demo.
+  const [selection, setSelection] = useState<RepSelection>(ALL_REPS);
 
   // Only an Admin can see anyone else's calls, so only an Admin has anything to
-  // switch between. A User's feed is already just their own.
+  // filter. A User's feed is already just their own.
   const isAdmin = membership?.role === "admin";
 
   const recordings = visibleRecordings(state);
@@ -80,9 +87,14 @@ export default function CallsScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // A User has nothing to narrow — the store already scoped the feed to them —
+  // so the filter is skipped entirely rather than applied with a default.
   const visible = useMemo(
-    () => filterByScope(recordings, scope, !!isAdmin, session?.user.id),
-    [recordings, scope, isAdmin, session?.user.id],
+    () =>
+      isAdmin
+        ? filterByRep(recordings, selection, session?.user.id)
+        : recordings,
+    [recordings, selection, isAdmin, session?.user.id],
   );
 
   const groups = useMemo(() => groupByDate(visible), [visible]);
@@ -92,11 +104,9 @@ export default function CallsScreen() {
     repNames[userId] ??
     (userId === session?.user.id ? (session?.user.email ?? "You") : "Unknown");
 
-  const emptyMessage = !isAdmin
-    ? "Your recorded calls will appear here."
-    : scope === "mine"
-      ? "You have not recorded any calls yet."
-      : "No calls have been recorded yet.";
+  const emptyMessage = isAdmin
+    ? repFilterEmptyMessage(selection)
+    : "Your recorded calls will appear here.";
 
   const onRefresh = useCallback(() => {
     // Nothing to fetch — but a pull that snaps back instantly reads as broken,
@@ -120,7 +130,15 @@ export default function CallsScreen() {
   return (
     <View style={styles.fill}>
       <AppHeader>
-        {isAdmin ? <ScopeSwitch value={scope} onChange={setScope} /> : null}
+        {isAdmin && session ? (
+          <RepFilter
+            selection={selection}
+            onChange={setSelection}
+            members={state.members}
+            currentUserId={session.user.id}
+            namesByUserId={repNames}
+          />
+        ) : null}
       </AppHeader>
 
       <ScrollView

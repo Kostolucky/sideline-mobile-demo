@@ -23,9 +23,9 @@ import type {
 import type { LocalRecording } from "@/lib/recording/types";
 import type { MemberRole } from "@/lib/auth";
 import {
-  ADMIN_PERSON_ID,
   CALLS,
   LOCAL_ONLY_RECORDINGS,
+  DEFAULT_PERSONA_ID,
   ORGANIZATION,
   PEOPLE,
   atDaysAgo,
@@ -222,7 +222,7 @@ export function buildInitialState(): DemoState {
   ].sort((a, b) => b.startedAt - a.startedAt);
 
   return {
-    personaId: ADMIN_PERSON_ID,
+    personaId: DEFAULT_PERSONA_ID,
     organizationId: ORGANIZATION.id,
     members: PEOPLE.map((p) => ({
       userId: p.id,
@@ -305,8 +305,8 @@ export function isAdmin(s: DemoState = state): boolean {
  * Production enforces this in the database (RLS), so a rep's feed simply comes
  * back with their own calls and there is no client-side filter to copy. With no
  * database, that scoping has to live here — this is the one place it happens.
- * The Admin scope switch (`filterByScope`) narrows this further, and can only
- * ever narrow.
+ * The Admin rep filter (`filterByRep`) narrows this further, and can only ever
+ * narrow.
  */
 export function visibleRecordings(s: DemoState = state): LocalRecording[] {
   if (isAdmin(s)) return s.recordings;
