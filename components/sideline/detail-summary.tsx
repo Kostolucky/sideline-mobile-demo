@@ -45,6 +45,7 @@ export function DetailSummary({
   canEditNotes,
   onSaveNotes,
   onEditingChange,
+  onChatWithNote,
 }: {
   detail: ConversationDetail;
   notes: string | null;
@@ -53,6 +54,8 @@ export function DetailSummary({
   onSaveNotes: (next: string) => Promise<string | null>;
   /** Lets the parent disable horizontal paging while the editor has focus. */
   onEditingChange: (editing: boolean) => void;
+  /** Opens the "Chat with note" screen. The screen owns the navigation. */
+  onChatWithNote: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(notes ?? "");
@@ -215,7 +218,7 @@ export function DetailSummary({
       </View>
     </ScrollView>
 
-    <ChatWithNote />
+    <ChatWithNote onPress={onChatWithNote} />
     </View>
   );
 }
@@ -223,9 +226,8 @@ export function DetailSummary({
 /**
  * Floating "Chat with note" pill, pinned over the bottom of the Summary pane.
  *
- * Placeholder — it is deliberately inert for now. It exists so the affordance
- * can be seen and talked about in a demo; asking a question about the call is
- * the feature it stands for, and nothing behind it is built yet.
+ * Opens the "Chat with note" screen. That screen is itself a shell — the
+ * composer accepts text but nothing answers yet.
  *
  * A solid pill rather than the translucent blur it's modelled on: a real blur
  * would mean adding `expo-blur`, and this app's zero-native-module rule is what
@@ -233,15 +235,15 @@ export function DetailSummary({
  * reads close enough, and the hairline border keeps the edge legible where it
  * overlaps text.
  */
-function ChatWithNote() {
+function ChatWithNote({ onPress }: { onPress: () => void }) {
   return (
     <View style={styles.chatDock} pointerEvents="box-none">
       <PressableScale
-        onPress={() => {}}
+        onPress={onPress}
         activeScale={0.97}
         accessibilityRole="button"
         accessibilityLabel="Chat with note"
-        accessibilityHint="Coming soon"
+        accessibilityHint="Ask a question about this call"
         style={styles.chatPill}
       >
         <Ionicons name="chatbubble" size={16} color={colors.foreground} />

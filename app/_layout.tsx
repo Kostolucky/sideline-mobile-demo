@@ -70,6 +70,8 @@ export default function RootLayout() {
               options={{ presentation: "modal", animation: "slide_from_bottom" }}
             />
             <Stack.Screen name="call/[id]" />
+            {/* "Chat with note", opened from a call's Summary pane. */}
+            <Stack.Screen name="chat/[id]" />
             {/* A detour out of the three primary actions, so it's a pushed
                 screen with a back arrow — and no bottom navigation. */}
             <Stack.Screen name="account" />
