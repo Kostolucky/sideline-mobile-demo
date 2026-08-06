@@ -8,7 +8,7 @@
  * None of that exists here. `useSession()` returns a signed-in person
  * immediately, and which person that is comes from the demo store's persona.
  * The interface is kept identical (`session`, `membership`, `isLoading`,
- * `signOut`) so `account-sheet.tsx` and the rest compile untouched.
+ * `signOut`) so the screens copied from production compile untouched.
  */
 
 import { createContext, useContext, useMemo, type ReactNode } from "react";

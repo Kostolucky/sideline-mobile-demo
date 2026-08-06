@@ -90,6 +90,14 @@ export function BottomNav({
   );
 }
 
+/**
+ * Icon only — no caption.
+ *
+ * With just three destinations and a distinct shape for each, the labels were
+ * repeating what the icons already said and crowding the bar. The name still
+ * reaches screen readers through `accessibilityLabel`, so nothing is lost for
+ * anyone who needs it. Icons are sized up to carry the target on their own.
+ */
 function NavItem({
   icon,
   inactiveIcon,
@@ -121,7 +129,7 @@ function NavItem({
       <View>
         <Ionicons
           name={active ? icon : inactiveIcon}
-          size={22}
+          size={30}
           color={active ? colors.brand : colors.mutedForeground}
         />
         {badge > 0 ? (
@@ -132,9 +140,6 @@ function NavItem({
           </View>
         ) : null}
       </View>
-      <Text variant="meta" tone={active ? "brand" : "muted"} style={styles.label}>
-        {label}
-      </Text>
     </PressableScale>
   );
 }
@@ -164,23 +169,22 @@ function RecordButton({ onPress }: { onPress: () => void }) {
 const styles = StyleSheet.create({
   bar: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    // Icons carry the bar on their own now, so they sit centred in it rather
+    // than hanging from the top with a caption underneath.
+    alignItems: "center",
     backgroundColor: colors.card,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
-    paddingTop: spacing.sm,
   },
   item: {
     flex: 1,
     alignItems: "center",
-    justifyContent: "flex-start",
-    gap: 3,
+    justifyContent: "center",
   },
-  label: { fontWeight: "600" },
   badge: {
     position: "absolute",
-    top: -5,
-    left: 12,
+    top: -4,
+    left: 18,
     minWidth: 18,
     height: 18,
     borderRadius: radius.full,

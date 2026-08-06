@@ -77,8 +77,19 @@ app/_layout.tsx          root Stack
 │   └── coaching.tsx     Coaching — an inbox of calls with coaching activity
 ├── record.tsx           modal, presented over whichever tab you were on
 ├── call/[id].tsx        call detail (Summary / Recording / Coaching panes)
+├── account.tsx          pushed screen: back arrow, no bottom nav
 └── (auth)/sign-in.tsx   reachable, never gating
 ```
+
+The nav is **icon only** — three destinations with distinct shapes don't need
+captions, and the names still reach screen readers via `accessibilityLabel`.
+
+**Account is a screen, not a sheet.** It began as a bottom sheet rendered inside
+whichever list screen you were on, which put it in the same stacking context as
+that screen's `ScrollView` — so the list painted over it and the sheet showed
+through the gaps between rows. A pushed screen has no such problem, and the
+bottom nav is correctly absent there: it's a detour out of the three primary
+actions, not a fourth one.
 
 **Record is not a tab.** It's an action: `BottomNav` pushes `/record` onto the
 root stack, so it slides up over the current tab and closing it returns you
