@@ -66,17 +66,51 @@ in the account sheet.
 
 ---
 
+## Navigation
+
+A persistent three-option bottom bar: **Calls · Record · Coaching**.
+
+```
+app/_layout.tsx          root Stack
+├── (tabs)/              Tabs navigator + custom tabBar (BottomNav)
+│   ├── index.tsx        Calls  — the call feed, and the landing screen
+│   └── coaching.tsx     Coaching — an inbox of calls with coaching activity
+├── record.tsx           modal, presented over whichever tab you were on
+├── call/[id].tsx        call detail (Summary / Recording / Coaching panes)
+└── (auth)/sign-in.tsx   reachable, never gating
+```
+
+**Record is not a tab.** It's an action: `BottomNav` pushes `/record` onto the
+root stack, so it slides up over the current tab and closing it returns you
+there. Making it a tab would give it navigation state it has no use for, and
+would let you wander away from a half-finished recording.
+
+Calls and Coaching are real tabs, so each keeps its own scroll position and
+bouncing between them can never stack duplicate screens.
+
+A Coaching row opens the call **directly on its Coaching pane**, via
+`router.push({ pathname: "/call/[id]", params: { id, initialTab: "coaching" } })`.
+
 ## Where things live
 
 ```
-lib/demo/content.ts   ← THE SAMPLE DATA. Edit this to change the demo.
-lib/demo/store.ts     ← state + selectors + actions (replaces Supabase/SQLite/upload queue)
-lib/demo/timings.ts   ← every simulated delay, in one place
-lib/demo/pipeline.ts  ← the scripted upload→processing→ready sequence
-constants/tokens.ts   ← the entire design system (dark-only)
-hooks/                ← simulated player, fake recorder
-components/           ← copied from production, almost entirely unchanged
+lib/demo/content.ts        ← THE SAMPLE DATA. Edit this to change the demo.
+lib/demo/store.ts          ← state + selectors + actions (replaces Supabase/SQLite/upload queue)
+lib/demo/timings.ts        ← every simulated delay, in one place
+lib/demo/pipeline.ts       ← the scripted upload→processing→ready sequence
+lib/calls/coaching-inbox.ts← pure builder for the Coaching list (+ relative time)
+constants/tokens.ts        ← the entire design system (dark-only)
+hooks/                     ← simulated player, fake recorder
+components/sideline/
+  bottom-nav.tsx           ← the three-option nav (presentational; badge passed in)
+  app-header.tsx           ← wordmark + avatar band, shared by both list screens
+components/                ← the rest copied from production, almost unchanged
 ```
+
+> `react-dom` is pinned to 19.1.0 even though the app never imports it.
+> expo-router pulls it in transitively, and an unpinned copy resolves to 19.2.x
+> and fails peer resolution against react 19.1.0. Production pins it for the
+> same reason.
 
 `lib/demo/content.ts` is **byte-identical to the same file in
 `sideline-web-demo`**, so the same call opens on the phone and on the web with

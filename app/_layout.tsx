@@ -13,7 +13,7 @@ import { SessionProvider } from "@/lib/auth";
 SplashScreen.preventAutoHideAsync();
 
 export const unstable_settings = {
-  anchor: "index",
+  anchor: "(tabs)",
 };
 
 /**
@@ -61,8 +61,10 @@ export default function RootLayout() {
               contentStyle: { backgroundColor: colors.background },
             }}
           >
-            <Stack.Screen name="index" />
-            {/* Capture slides up over the feed, matching the mockup's sheet. */}
+            {/* Calls + Coaching, behind the persistent bottom navigation. */}
+            <Stack.Screen name="(tabs)" />
+            {/* Capture slides up over whichever tab you were on, so closing it
+                returns you there. It is an action, not a tab. */}
             <Stack.Screen
               name="record"
               options={{ presentation: "modal", animation: "slide_from_bottom" }}

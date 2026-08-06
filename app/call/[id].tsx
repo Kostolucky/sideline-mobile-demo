@@ -42,6 +42,17 @@ const TABS = ["Summary", "Recording", "Coaching"] as const;
 const COACHING_TAB = 2;
 
 /**
+ * Route param names for the pane to open on, so callers don't pass raw indices
+ * around. The Coaching inbox uses `"coaching"`; everything else lands on
+ * Summary, which is the default read order for a call.
+ */
+const INITIAL_TAB: Record<string, number> = {
+  summary: 0,
+  recording: 1,
+  coaching: COACHING_TAB,
+};
+
+/**
  * A completed call. The title and its date line stay fixed while the body
  * swipes horizontally between three panes.
  *
@@ -59,14 +70,20 @@ const COACHING_TAB = 2;
  * is gone.
  */
 export default function ConversationDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, initialTab } = useLocalSearchParams<{
+    id: string;
+    /** Which pane to open on. Set by the Coaching inbox; absent elsewhere. */
+    initialTab?: string;
+  }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { session, membership } = useSession();
   const state = useDemoState();
 
-  const [active, setActive] = useState(0);
+  const startIndex = INITIAL_TAB[initialTab ?? ""] ?? 0;
+
+  const [active, setActive] = useState(startIndex);
   const [pagingEnabled, setPagingEnabled] = useState(true);
 
   // Inline rename, matching the pencil affordance the web app has.
@@ -76,7 +93,9 @@ export default function ConversationDetailScreen() {
   const [nameError, setNameError] = useState<string | null>(null);
 
   const pagerRef = useRef<ScrollView>(null);
-  const indicator = useSharedValue(0);
+  const indicator = useSharedValue(startIndex);
+  /** Guards the one-time jump to `initialTab` so a re-layout can't re-trigger it. */
+  const jumpedToInitial = useRef(false);
 
   const detail = id ? getConversationDetail(id, state) : null;
   const memberNames = namesByUserId(state);
@@ -335,6 +354,14 @@ export default function ConversationDetailScreen() {
         scrollEnabled={pagingEnabled}
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={(e) => onMomentumEnd(e.nativeEvent.contentOffset.x)}
+        // Jump straight to the requested pane once the width is known. Without
+        // animation, so arriving from the Coaching inbox lands on the thread
+        // rather than visibly sliding past Summary and Recording to get there.
+        onLayout={() => {
+          if (jumpedToInitial.current || startIndex === 0 || width === 0) return;
+          jumpedToInitial.current = true;
+          pagerRef.current?.scrollTo({ x: startIndex * width, animated: false });
+        }}
         style={styles.pager}
       >
         <View style={{ width }}>

@@ -4,11 +4,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
-import { colors, radius, spacing } from "@/constants/tokens";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { PressableScale } from "@/components/ui/pressable-scale";
+import { colors, spacing } from "@/constants/tokens";
 import { Text } from "@/components/ui/text";
-import { AccountSheet } from "@/components/sideline/account-sheet";
+import { AppHeader } from "@/components/sideline/app-header";
+import { bottomNavPadding } from "@/components/sideline/bottom-nav";
 import { ConversationRow } from "@/components/sideline/conversation-row";
 import { ScopeSwitch } from "@/components/sideline/scope-switch";
 import { filterByScope, type FeedScope } from "@/lib/calls/scope";
@@ -27,34 +26,20 @@ import { TIMINGS } from "@/lib/demo/timings";
 import { ADMIN_PERSON_ID, REP_PERSON_ID } from "@/lib/demo/content";
 import type { LocalRecording } from "@/lib/recording/types";
 
-/** Initials for the header avatar, derived from the account email. */
-function initialsFrom(email: string | undefined): string {
-  if (!email) return "?";
-  const [local] = email.split("@");
-  const parts = local.split(/[.\-_+]/).filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return local.slice(0, 2).toUpperCase();
-}
-
 /**
- * Home — the call history feed. The list is the root of the app, and recording
- * starts from the floating button, which begins capture immediately with no
- * setup step.
+ * Calls — the call history feed, and the app's landing screen.
  *
- * Production polls every 20 seconds while focused because there is no push
- * channel. The demo store notifies subscribers the instant anything changes, so
- * there is nothing to poll for — the one thing that genuinely arrives late is
- * the scripted coaching message, which is what the timer below is for.
+ * Recording used to start from a floating button on this screen; it now lives
+ * in the persistent bottom navigation, so the FAB is gone and the list simply
+ * pads itself clear of the nav.
  */
-export default function HomeScreen() {
+export default function CallsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { session, membership } = useSession();
   const state = useDemoState();
 
   const [refreshing, setRefreshing] = useState(false);
-  const [accountOpen, setAccountOpen] = useState(false);
-  const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [scope, setScope] = useState<FeedScope>("all");
 
   // Only an Admin can see anyone else's calls, so only an Admin has anything to
@@ -75,11 +60,15 @@ export default function HomeScreen() {
       if (injected.current) return;
       injected.current = true;
       // Send it from whoever the viewer is NOT, so it always lands as unread.
+      // When the viewer is an Admin the sender is the rep who actually recorded
+      // THIS call — not a fixed person, or the inbox would show someone
+      // replying on a colleague's call.
       const viewerIsAdmin =
         state.members.find((m) => m.userId === state.personaId)?.role === "admin";
+      const callRep = state.calls[callId]?.recorded_by ?? REP_PERSON_ID;
       injectIncomingComment(
         callId,
-        viewerIsAdmin ? REP_PERSON_ID : ADMIN_PERSON_ID,
+        viewerIsAdmin ? callRep : ADMIN_PERSON_ID,
         viewerIsAdmin
           ? "Just re-listened to the ridge vent part — I'm going to use that framing on the Delgado appeal too. Thanks for flagging it."
           : "One more thing on this one: when the carrier calls back, lead with the test-square count rather than the photos. The number is what moves them.",
@@ -130,39 +119,14 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.fill}>
-      {/* Compact header — sits inside the feed rather than above it as a banner.
-          The scope switch lives in this band, which is outside the ScrollView, so
-          the current view stays legible while the feed scrolls. */}
-      <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
-        <View style={styles.headerRow}>
-          <Text variant="wordmark" tone="brand">
-            Sideline
-          </Text>
-          <PressableScale
-            onPress={() => setAccountOpen(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Account menu"
-            style={styles.avatarTarget}
-          >
-            <View style={styles.avatar}>
-              <Text variant="meta" style={styles.avatarText}>
-                {initialsFrom(session?.user.email)}
-              </Text>
-            </View>
-          </PressableScale>
-        </View>
-
-        {isAdmin ? (
-          <View style={styles.scopeRow}>
-            <ScopeSwitch value={scope} onChange={setScope} />
-          </View>
-        ) : null}
-      </View>
+      <AppHeader>
+        {isAdmin ? <ScopeSwitch value={scope} onChange={setScope} /> : null}
+      </AppHeader>
 
       <ScrollView
         contentContainerStyle={[
           styles.list,
-          { paddingBottom: insets.bottom + 120 },
+          { paddingBottom: bottomNavPadding(insets.bottom) },
         ]}
         refreshControl={
           <RefreshControl
@@ -209,88 +173,16 @@ export default function HomeScreen() {
           ))
         )}
       </ScrollView>
-
-      <PressableScale
-        onPress={() => router.push("/record")}
-        accessibilityRole="button"
-        accessibilityLabel="Start new sales call"
-        style={[styles.fab, { bottom: Math.max(spacing["2xl"], insets.bottom) }]}
-      >
-        <Ionicons name="add" size={30} color={colors.brandForeground} />
-      </PressableScale>
-
-      {accountOpen ? (
-        <AccountSheet
-          onClose={() => setAccountOpen(false)}
-          onRequestSignOut={() => {
-            setAccountOpen(false);
-            setConfirmSignOut(true);
-          }}
-        />
-      ) : null}
-
-      {confirmSignOut ? (
-        <ConfirmDialog
-          title="Sign out?"
-          description="You'll need to sign in again to record calls."
-          confirmLabel="Sign out"
-          cancelLabel="Stay signed in"
-          destructive
-          onConfirm={() => {
-            setConfirmSignOut(false);
-            router.push("/sign-in");
-          }}
-          onCancel={() => setConfirmSignOut(false)}
-        />
-      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   fill: { flex: 1, backgroundColor: colors.background },
-  header: {
-    backgroundColor: colors.card,
-    paddingHorizontal: spacing.xl,
-    paddingBottom: 14,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  scopeRow: { marginTop: spacing.md },
-  avatarTarget: {
-    width: 44,
-    height: 44,
-    marginVertical: -4,
-    marginRight: -4,
-    alignItems: "flex-end",
-    justifyContent: "center",
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.full,
-    backgroundColor: colors.secondary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: { fontWeight: "600" },
   list: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg },
   group: { marginBottom: spacing["2xl"] },
   groupHeading: { marginBottom: 10, paddingHorizontal: 2 },
   groupItems: { gap: spacing.sm },
   empty: { alignItems: "center", gap: spacing.md, paddingVertical: 80 },
   emptyText: { textAlign: "center", maxWidth: 260 },
-  fab: {
-    position: "absolute",
-    right: spacing.xl,
-    width: 56,
-    height: 56,
-    borderRadius: radius.full,
-    backgroundColor: colors.brand,
-    alignItems: "center",
-    justifyContent: "center",
-  },
 });
