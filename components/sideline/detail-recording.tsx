@@ -27,6 +27,7 @@ export function DetailRecording({
   detail,
   player,
   status,
+  hasRecording,
   onScrubStart,
   onScrubEnd,
 }: {
@@ -34,6 +35,15 @@ export function DetailRecording({
   /** Owned by the parent so the Feedback pane can seek into the same audio. */
   player: SimulatedPlayer;
   status: SimulatedPlayerStatus;
+  /**
+   * There is a recording to play.
+   *
+   * Deliberately NOT `!!detail.audioUrl`: in this demo playback runs on a
+   * simulated clock and no audio file is shipped, so keying the transport off a
+   * real URL hid it on every call. A finished call always has a recording to
+   * scrub, whether or not a file has been dropped into `assets/audio`.
+   */
+  hasRecording: boolean;
   onScrubStart: () => void;
   onScrubEnd: () => void;
 }) {
@@ -76,7 +86,7 @@ export function DetailRecording({
     player.seekTo(ms / 1000);
   }
 
-  if (!detail.audioUrl && utterances.length === 0) {
+  if (!hasRecording && utterances.length === 0) {
     return (
       <View style={styles.empty}>
         <Text variant="body" tone="muted">
@@ -88,7 +98,7 @@ export function DetailRecording({
 
   return (
     <View style={styles.fill}>
-      {detail.audioUrl ? (
+      {hasRecording ? (
         <View style={styles.playbackWrap}>
           <View style={styles.playbackBar}>
             <IconButton

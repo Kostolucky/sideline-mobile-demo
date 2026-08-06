@@ -378,6 +378,7 @@ export default function ConversationDetailScreen() {
             detail={detail}
             player={player}
             status={status}
+            hasRecording={hasRecording}
             onScrubStart={() => setPagingEnabled(false)}
             onScrubEnd={() => setPagingEnabled(true)}
           />
