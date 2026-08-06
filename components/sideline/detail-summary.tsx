@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 import { colors, radius, spacing, type } from "@/constants/tokens";
 import { PressableScale } from "@/components/ui/pressable-scale";
@@ -96,6 +97,7 @@ export function DetailSummary({
     !!overview || takeaways.length > 0 || nextSteps.length > 0 || strengths.length > 0;
 
   return (
+    <View style={styles.fill}>
     <ScrollView contentContainerStyle={styles.body}>
       {hasSummary ? (
         <View>
@@ -212,14 +214,70 @@ export function DetailSummary({
         )}
       </View>
     </ScrollView>
+
+    <ChatWithNote />
+    </View>
+  );
+}
+
+/**
+ * Floating "Chat with note" pill, pinned over the bottom of the Summary pane.
+ *
+ * Placeholder — it is deliberately inert for now. It exists so the affordance
+ * can be seen and talked about in a demo; asking a question about the call is
+ * the feature it stands for, and nothing behind it is built yet.
+ *
+ * A solid pill rather than the translucent blur it's modelled on: a real blur
+ * would mean adding `expo-blur`, and this app's zero-native-module rule is what
+ * lets it run in Expo Go with no dev build. `card` over the page background
+ * reads close enough, and the hairline border keeps the edge legible where it
+ * overlaps text.
+ */
+function ChatWithNote() {
+  return (
+    <View style={styles.chatDock} pointerEvents="box-none">
+      <PressableScale
+        onPress={() => {}}
+        activeScale={0.97}
+        accessibilityRole="button"
+        accessibilityLabel="Chat with note"
+        accessibilityHint="Coming soon"
+        style={styles.chatPill}
+      >
+        <Ionicons name="chatbubble" size={16} color={colors.foreground} />
+        <Text variant="control">Chat with note</Text>
+      </PressableScale>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  fill: { flex: 1 },
+  chatDock: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: spacing.xl,
+    alignItems: "center",
+    paddingHorizontal: spacing["2xl"],
+  },
+  chatPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    height: 52,
+    paddingHorizontal: spacing["2xl"],
+    borderRadius: radius.full,
+    backgroundColor: colors.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
   body: {
     paddingHorizontal: spacing["2xl"],
     paddingTop: spacing.xl,
-    paddingBottom: 64,
+    // Clears the floating "Chat with note" pill (52 tall + 20 inset) so the
+    // last line of notes can always be scrolled out from under it.
+    paddingBottom: 112,
   },
   sections: { marginTop: spacing.lg, gap: spacing["2xl"] },
   section: { gap: spacing.sm },
