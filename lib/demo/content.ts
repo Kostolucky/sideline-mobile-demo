@@ -4,13 +4,16 @@
  * This file is authored once and kept byte-identical in both demo repos
  * (`sideline-web-demo` and `sideline-mobile-demo`). It holds the *story* — the
  * people, the calls, the dialogue, the coaching — in shapes that belong to
- * neither app. Each repo then has a thin adapter (`lib/demo/index.ts` on web,
- * `lib/demo/adapt.ts` on mobile) that maps this into that app's own types.
+ * neither app. Each repo then has a thin adapter that maps this into its own
+ * types (`lib/demo/store.ts` in both).
  *
  * Why the indirection: opening the same conversation on the phone and on the
  * web and seeing the same rep, the same title and the same transcript is the
  * single most convincing thing these demos do. Two hand-maintained fixture sets
  * would drift within a week.
+ *
+ * Deliberately small: three reps, one call each. A demo is easier to follow
+ * when there is nothing on screen that isn't being talked about.
  *
  * Everything here is fiction. No real person, customer or company.
  *
@@ -18,12 +21,7 @@
  * feed always says "Today" and "Yesterday" no matter when the demo is shown.
  */
 
-export type PersonId =
-  | "u-dana"
-  | "u-marcus"
-  | "u-priya"
-  | "u-tomas"
-  | "u-sofia";
+export type PersonId = "u-dana" | "u-marcus" | "u-priya" | "u-tomas";
 
 export interface DemoPerson {
   id: PersonId;
@@ -74,19 +72,6 @@ export interface DemoComment {
   parentId: string | null;
 }
 
-export type DemoScorecardResult =
-  | "met"
-  | "partially_met"
-  | "not_met"
-  | "not_applicable";
-
-export interface DemoScorecardEntry {
-  criterionId: string;
-  result: DemoScorecardResult;
-  explanation: string;
-  confidence: number;
-}
-
 export interface DemoCall {
   id: string;
   name: string;
@@ -103,7 +88,6 @@ export interface DemoCall {
   summary?: DemoSummary;
   insights?: DemoInsights;
   comments: DemoComment[];
-  scorecard?: DemoScorecardEntry[];
 }
 
 /* ------------------------------------------------------------------------ */
@@ -116,6 +100,13 @@ export const ORGANIZATION = {
   slug: "northline-home-services",
 } as const;
 
+/**
+ * One Admin and three reps.
+ *
+ * Dana is the manager — she reviews and coaches rather than selling, which is
+ * why she has no calls of her own. The three reps are all Users; the roles in
+ * this product are only Admin and User, and every rep is a User.
+ */
 export const PEOPLE: DemoPerson[] = [
   {
     id: "u-dana",
@@ -149,14 +140,6 @@ export const PEOPLE: DemoPerson[] = [
     title: "Field Sales Rep",
     joinedDaysAgo: 96,
   },
-  {
-    id: "u-sofia",
-    name: "Sofia Brandt",
-    email: "sofia@northlinehome.com",
-    role: "member",
-    title: "Field Sales Rep",
-    joinedDaysAgo: 41,
-  },
 ];
 
 /** The two personas the in-app switcher toggles between. */
@@ -167,12 +150,12 @@ export const REP_PERSON_ID: PersonId = "u-marcus";
  * WHO THE APP BOOTS AS — the hard-coded "current user".
  *
  * Flip this to `REP_PERSON_ID` to launch straight into the regular-user
- * experience: only their own calls, and no rep filter on the Calls screen.
- * It can also be changed at runtime on the Account screen ("Viewing as"),
- * which is the faster way to show both sides during a demo.
+ * experience: only their own calls, and no rep filter. It can also be changed
+ * at runtime on the Account screen ("Viewing as"), which is the faster way to
+ * show both sides during a demo.
  *
- * There is deliberately no second `currentUser` object anywhere — this
- * constant and the persona in the store are the only source of truth.
+ * There is deliberately no second `currentUser` object anywhere — this constant
+ * and the persona in the store are the only source of truth.
  */
 export const DEFAULT_PERSONA_ID: PersonId = ADMIN_PERSON_ID;
 
@@ -203,8 +186,8 @@ export function isoDaysAgo(daysAgo: number, hour: number, minute: number): strin
 
 /**
  * Turns a compact `[speaker, startSeconds, text]` script into utterances,
- * deriving `endMs` from the next line's start. Writing 120 lines of dialogue
- * with explicit start/end pairs would be unreadable and easy to get wrong.
+ * deriving `endMs` from the next line's start. Writing dialogue with explicit
+ * start/end pairs would be unreadable and easy to get wrong.
  */
 function script(
   lines: [speaker: "A" | "B", startSeconds: number, text: string][],
@@ -223,91 +206,7 @@ function script(
 }
 
 /* ------------------------------------------------------------------------ */
-/* Scorecard rubric — mirrors production's "Home Services" template           */
-/* ------------------------------------------------------------------------ */
-
-export interface DemoCriterion {
-  id: string;
-  name: string;
-  description: string;
-  position: number;
-}
-
-export const SCORECARD_NAME = "Home Services";
-
-export const SCORECARD_CRITERIA: DemoCriterion[] = [
-  {
-    id: "c-rapport",
-    name: "Rapport & agenda",
-    description:
-      "Introduced themselves, set expectations for the visit, and earned permission to proceed.",
-    position: 1,
-  },
-  {
-    id: "c-discovery",
-    name: "Discovery",
-    description:
-      "Asked open questions about the home, its history, and what prompted the call.",
-    position: 2,
-  },
-  {
-    id: "c-consequence",
-    name: "Problem & consequence",
-    description:
-      "Connected the technical problem to a consequence the homeowner actually cares about.",
-    position: 3,
-  },
-  {
-    id: "c-decision-maker",
-    name: "Decision-maker confirmation",
-    description:
-      "Confirmed who else is involved in the decision before presenting pricing.",
-    position: 4,
-  },
-  {
-    id: "c-solution",
-    name: "Solution presentation",
-    description:
-      "Presented options clearly, tied to the discovery, without overwhelming detail.",
-    position: 5,
-  },
-  {
-    id: "c-trust",
-    name: "Differentiation & trust",
-    description:
-      "Gave a concrete reason to choose this company over a cheaper quote.",
-    position: 6,
-  },
-  {
-    id: "c-financing",
-    name: "Financing or payment",
-    description: "Raised payment options before price became an objection.",
-    position: 7,
-  },
-  {
-    id: "c-objections",
-    name: "Objection handling",
-    description:
-      "Acknowledged concerns, clarified them, and responded without becoming defensive.",
-    position: 8,
-  },
-  {
-    id: "c-close",
-    name: "Closing attempt",
-    description: "Made a clear, direct ask for the business.",
-    position: 9,
-  },
-  {
-    id: "c-next-step",
-    name: "Clear next step",
-    description:
-      "Left with a specific commitment — a date, a time, and who does what.",
-    position: 10,
-  },
-];
-
-/* ------------------------------------------------------------------------ */
-/* Hero call 1 — Hollis Residence, furnace replacement                        */
+/* Marcus — Hollis Residence, furnace replacement                             */
 /* ------------------------------------------------------------------------ */
 
 const HOLLIS_DURATION = 1694; // 28:14
@@ -366,7 +265,7 @@ const hollisUtterances = script(
 );
 
 /* ------------------------------------------------------------------------ */
-/* Hero call 2 — Brennan roof inspection                                      */
+/* Priya — Brennan roof inspection                                            */
 /* ------------------------------------------------------------------------ */
 
 const BRENNAN_DURATION = 2512; // 41:52
@@ -407,168 +306,36 @@ const brennanUtterances = script(
 );
 
 /* ------------------------------------------------------------------------ */
-/* Hero call 3 — Okafor window quote                                          */
+/* Tomas — Castellanos water heater                                           */
 /* ------------------------------------------------------------------------ */
 
-const OKAFOR_DURATION = 1117; // 18:37
+const CASTELLANOS_DURATION = 933; // 15:33
 
-const okaforUtterances = script(
+const castellanosUtterances = script(
   [
-    ["A", 2, "Mrs. Okafor? Marcus, Northline. Thanks for having me out."],
-    ["B", 7, "Of course. We've got three quotes coming this week, I'll be upfront about that."],
-    ["A", 13, "That's smart, honestly. Can I ask who else you're having out?"],
-    ["B", 19, "Renewal by Andersen was yesterday, and someone local on Friday."],
-    ["A", 26, "Okay. What did you think of yesterday's?"],
-    ["B", 30, "The number was enormous. Forty-one thousand for nine windows."],
-    ["A", 38, "That's on the high side even for them. What are you actually trying to fix — is it drafts, noise, the look?"],
-    ["B", 47, "Drafts mostly. The two in the front room are terrible in winter. And they're painted shut."],
-    ["A", 56, "Painted shut is a real thing — that's usually a sign the sashes have swelled. Are they original to the house?"],
-    ["B", 64, "1978, so I assume so."],
-    ["A", 69, "Let me measure and check a couple of things."],
-    ["A", 380, "So — here's something. Six of your nine are actually in decent shape. The glazing's tired but the frames are sound."],
-    ["B", 392, "The other guy said all nine."],
-    ["A", 396, "All nine is more money. But the three that matter are the two in the front room and the one over the sink, and those are the ones you actually notice."],
-    ["B", 407, "So what would you do?"],
-    ["A", 411, "Replace those three properly — triple pane on the front room since that's your noise side too — and re-glaze the rest. Eleven two total."],
-    ["B", 424, "Eleven versus forty-one."],
-    ["A", 428, "For a different scope, to be fair. If you want all nine replaced I'd be around twenty-six, and I'd still tell you not to."],
-    ["B", 439, "Why wouldn't you want the bigger sale?"],
-    ["A", 444, "Because you'd get to year three, nothing would feel different in the six you didn't care about, and you'd tell your neighbours we oversold you."],
-    ["B", 456, "That's a fair answer."],
-    ["A", 461, "Take the other two quotes. But ask both of them to price the three-window scope as well, so you're comparing the same thing."],
-    ["B", 472, "I will. When could you start?"],
-    ["A", 477, "Three weeks for the triple pane to come in, then it's a one-day install. If you decide by Friday I can hold the mid-March slot."],
-    ["B", 489, "Let me see Friday's quote and I'll call you."],
-    ["A", 496, "Sounds good. I'll email the breakdown tonight, both scopes, so you can put them side by side."],
+    ["A", 2, "You said it's leaking — is it dripping or is there standing water?"],
+    ["B", 7, "There's a puddle. It's been there a few days."],
+    ["A", 12, "Okay, let me look at where it's coming from, because that changes everything."],
+    ["A", 200, "It's the tank, not a fitting. That's not repairable."],
+    ["B", 208, "How long do I have?"],
+    ["A", 212, "Days, realistically. When it goes it'll empty forty gallons onto that floor."],
+    ["B", 220, "That's the finished basement."],
+    ["A", 224, "That's why I'd do it this week. Standard fifty-gallon, installed, eighteen fifty. I can do Thursday."],
+    ["B", 235, "Do Thursday."],
   ],
-  OKAFOR_DURATION,
+  CASTELLANOS_DURATION,
 );
 
 /* ------------------------------------------------------------------------ */
-/* Short transcripts for the remaining ready calls                            */
-/* ------------------------------------------------------------------------ */
-
-function shortScript(
-  lines: [speaker: "A" | "B", startSeconds: number, text: string][],
-  totalSeconds: number,
-): DemoUtterance[] {
-  return script(lines, totalSeconds);
-}
-
-/* ------------------------------------------------------------------------ */
-/* The calls                                                                  */
+/* The calls — one per rep                                                    */
 /* ------------------------------------------------------------------------ */
 
 export const CALLS: DemoCall[] = [
-  /* ---------------- Today ---------------- */
-  {
-    id: "call-okafor",
-    name: "Okafor Window Quote",
-    repId: "u-marcus",
-    daysAgo: 0,
-    hour: 9,
-    minute: 20,
-    durationSeconds: OKAFOR_DURATION,
-    status: "ready",
-    notes:
-      "Third of three quotes — Andersen came in at $41k for all nine. Homeowner is price-anchored high, which helps us. Front room is the real pain point (drafts + street noise).",
-    utterances: okaforUtterances,
-    summary: {
-      participantsContext:
-        "Marcus Ellery met Mrs. Okafor at her 1978 home for a window replacement estimate. She is actively collecting three quotes and had already seen a $41,000 bid for nine windows.",
-      summary:
-        "Marcus reframed the job from a nine-window replacement to a three-window replacement plus re-glazing, on the grounds that only three windows drive the homeowner's actual complaint. He quoted $11,200 for the reduced scope and volunteered a $26,000 number for the full nine while advising against it. He explicitly encouraged her to ask the competing bidders to price the same reduced scope so the comparison is like-for-like.",
-      mainTakeaways: [
-        "Homeowner is mid-comparison with two other bids; a $41,000 anchor is already set.",
-        "Real complaint is drafts and street noise in the front room, not the whole house.",
-        "Marcus deliberately quoted a smaller scope than he could have sold.",
-        "Decision is gated on Friday's third quote.",
-      ],
-      nextSteps: [
-        "Email both scopes (three-window and full nine) tonight for side-by-side comparison.",
-        "Hold the mid-March install slot until Friday.",
-        "Follow up after the Friday quote.",
-      ],
-    },
-    insights: {
-      outcome: "Quote delivered; decision pending a competing bid on Friday.",
-      strengths: [
-        "Turned a competitor's high anchor into a credibility opportunity rather than matching it.",
-        "Recommended against the larger sale and explained why, which visibly moved the homeowner.",
-        "Coached the buyer on how to compare quotes fairly — a strong trust play.",
-      ],
-      primaryImprovement: {
-        area: "Closing attempt",
-        suggestion:
-          "The scope reframe did the hard work, but the call ended on the homeowner's timeline. A direct ask — 'if Friday's number is higher, do we have a deal?' — would convert this without pressure.",
-      },
-      objections: [
-        "Already has two other quotes in flight.",
-        "Sceptical that a smaller scope is not just a bait price.",
-      ],
-      nextSteps: [
-        "Send both scopes in writing tonight.",
-        "Confirm the mid-March slot hold.",
-      ],
-      coachingNote:
-        "This is the best discovery-to-scope translation on the team this week. The 'you'd tell your neighbours we oversold you' line is worth stealing.",
-      customerFollowUpDraft:
-        "Hi Mrs. Okafor — great to meet you this morning. As promised, both scopes are attached: the three-window replacement with triple pane in the front room at $11,200, and the full nine-window replacement at $26,400. I'd still recommend the first. I'm holding a mid-March install slot for you through Friday. — Marcus",
-    },
-    comments: [
-      {
-        id: "cm-okafor-1",
-        authorId: "u-dana",
-        body: "The scope reframe here is excellent. You talked yourself out of $15k and made the sale more likely — that's the whole job.",
-        daysAgo: 0,
-        hour: 11,
-        minute: 42,
-        timestampMs: 411_000,
-        parentId: null,
-      },
-      {
-        id: "cm-okafor-2",
-        authorId: "u-dana",
-        body: "One thing though — listen back around the 8 minute mark. She asks 'when could you start' and that's a buying signal. You answered the logistics question but didn't ask for the business.",
-        daysAgo: 0,
-        hour: 11,
-        minute: 44,
-        timestampMs: 477_000,
-        parentId: null,
-      },
-    ],
-    scorecard: [
-      { criterionId: "c-rapport", result: "met", explanation: "Introduced himself and immediately acknowledged the competitive situation without defensiveness.", confidence: 0.94 },
-      { criterionId: "c-discovery", result: "met", explanation: "Asked what she was trying to fix before measuring anything, and surfaced drafts plus noise.", confidence: 0.91 },
-      { criterionId: "c-consequence", result: "met", explanation: "Tied the front-room windows to the rooms she actually uses in winter.", confidence: 0.82 },
-      { criterionId: "c-decision-maker", result: "not_met", explanation: "Never confirmed whether anyone else is involved in the decision.", confidence: 0.88 },
-      { criterionId: "c-solution", result: "met", explanation: "Presented two clearly differentiated scopes with a stated recommendation.", confidence: 0.95 },
-      { criterionId: "c-trust", result: "met", explanation: "Advised against the larger job and coached her on comparing quotes fairly.", confidence: 0.97 },
-      { criterionId: "c-financing", result: "not_met", explanation: "Payment options were never raised.", confidence: 0.9 },
-      { criterionId: "c-objections", result: "partially_met", explanation: "Handled the 'why wouldn't you want the bigger sale' challenge well, but did not address the competing bids directly.", confidence: 0.71 },
-      { criterionId: "c-close", result: "not_met", explanation: "No direct ask for the business at any point.", confidence: 0.93 },
-      { criterionId: "c-next-step", result: "partially_met", explanation: "Agreed to send the quote and hold a slot, but the follow-up date was left to the homeowner.", confidence: 0.79 },
-    ],
-  },
-  {
-    id: "call-delgado",
-    name: "Delgado HVAC Tune-Up",
-    repId: "u-tomas",
-    daysAgo: 0,
-    hour: 8,
-    minute: 5,
-    durationSeconds: 725,
-    status: "processing",
-    utterances: [],
-    comments: [],
-  },
-
-  /* ---------------- Yesterday ---------------- */
   {
     id: "call-hollis",
     name: "Hollis Residence — Furnace Replacement",
     repId: "u-marcus",
-    daysAgo: 1,
+    daysAgo: 0,
     hour: 10,
     minute: 42,
     durationSeconds: HOLLIS_DURATION,
@@ -663,113 +430,12 @@ export const CALLS: DemoCall[] = [
         parentId: null,
       },
     ],
-    scorecard: [
-      { criterionId: "c-rapport", result: "met", explanation: "Opened by asking what was happening rather than launching into a pitch.", confidence: 0.96 },
-      { criterionId: "c-discovery", result: "met", explanation: "Established symptom, duration, system age, and household composition before diagnosing.", confidence: 0.98 },
-      { criterionId: "c-consequence", result: "met", explanation: "Connected the cracked exchanger to combustion gases with a newborn in the house.", confidence: 0.99 },
-      { criterionId: "c-decision-maker", result: "met", explanation: "Explicitly asked whether his wife was part of the decision before presenting pricing.", confidence: 0.95 },
-      { criterionId: "c-solution", result: "met", explanation: "Three clearly differentiated options with an explicit recommendation.", confidence: 0.97 },
-      { criterionId: "c-trust", result: "met", explanation: "Contrasted his approach with the previous rep's on-the-spot pressure, then earned it by diagnosing first.", confidence: 0.93 },
-      { criterionId: "c-financing", result: "met", explanation: "Offered 0% for 60 months unprompted, before price resistance appeared.", confidence: 0.94 },
-      { criterionId: "c-objections", result: "met", explanation: "Handled the prior-pressure concern by changing his own behaviour rather than arguing.", confidence: 0.88 },
-      { criterionId: "c-close", result: "partially_met", explanation: "Asked for Thursday once, then withdrew as soon as the homeowner hesitated.", confidence: 0.85 },
-      { criterionId: "c-next-step", result: "partially_met", explanation: "A Wednesday callback was agreed, but the homeowner owns the action, not the rep.", confidence: 0.8 },
-    ],
   },
-  {
-    id: "call-whitaker",
-    name: "Whitaker Estimate Follow-Up",
-    repId: "u-sofia",
-    daysAgo: 1,
-    hour: 14,
-    minute: 15,
-    durationSeconds: 1360,
-    status: "ready",
-    notes: "Second visit. Husband was there this time, which is what unblocked it.",
-    utterances: shortScript(
-      [
-        ["A", 3, "Thanks for having me back out — I know we did most of this two weeks ago."],
-        ["B", 9, "My husband wanted to hear it himself, that's all."],
-        ["A", 15, "Completely fair. Should I run through the whole thing again or just the numbers?"],
-        ["B", 22, "The numbers, and then the warranty part. That's what he had questions about."],
-        ["A", 30, "Sure. Fourteen six for the full system, and the labour warranty is ten years, parts twelve, and that's transferable if you sell."],
-        ["B", 42, "Transferable is the part he cared about."],
-        ["A", 47, "Most people don't ask. It's worth real money at resale — I'll put it in writing."],
-        ["B", 55, "Then I think we're ready to schedule."],
-      ],
-      1360,
-    ),
-    summary: {
-      participantsContext:
-        "Sofia Brandt returned to the Whitaker home for a second visit, this time with both homeowners present.",
-      summary:
-        "A short follow-up focused on pricing confirmation and warranty terms. The transferable warranty was the deciding factor for the second decision-maker. The homeowners indicated they are ready to schedule.",
-      mainTakeaways: [
-        "Second decision-maker needed to hear the terms directly.",
-        "Transferable warranty was the unlock, not price.",
-        "Verbal readiness to schedule.",
-      ],
-      nextSteps: [
-        "Put the transferable warranty terms in writing.",
-        "Send the scheduling link.",
-      ],
-    },
-    comments: [
-      {
-        id: "cm-whitaker-1",
-        authorId: "u-dana",
-        body: "Good instinct asking whether to re-run the whole thing or just the numbers. Saved everyone twenty minutes.",
-        daysAgo: 1,
-        hour: 18,
-        minute: 5,
-        timestampMs: 15_000,
-        parentId: null,
-      },
-    ],
-  },
-  {
-    id: "call-nguyen",
-    name: "Nguyen Attic Insulation",
-    repId: "u-priya",
-    daysAgo: 1,
-    hour: 11,
-    minute: 30,
-    durationSeconds: 558,
-    status: "ready",
-    utterances: shortScript(
-      [
-        ["A", 2, "So the reason your bills jumped isn't the furnace — it's up here."],
-        ["B", 8, "It's just insulation, isn't it?"],
-        ["A", 12, "It was. It's about four inches now, and it's compressed. You want fourteen."],
-        ["B", 20, "Four to fourteen. That's a big gap."],
-        ["A", 25, "It settles over thirty years. Blown-in on top of what's there, twenty-eight hundred, one day."],
-        ["B", 34, "And that actually shows up on the bill?"],
-        ["A", 38, "For a house this age, most people see fifteen to twenty percent in winter. I won't promise a number."],
-        ["B", 47, "Send me something in writing."],
-      ],
-      558,
-    ),
-    summary: {
-      participantsContext:
-        "Priya Raman inspected the attic at the Nguyen residence following a complaint about rising heating bills.",
-      summary:
-        "Priya identified compressed, under-depth attic insulation as the cause rather than the HVAC system. She quoted $2,800 for blown-in insulation to R-49 depth and declined to guarantee a specific savings figure.",
-      mainTakeaways: [
-        "Root cause is insulation depth, not equipment.",
-        "Rep avoided over-promising savings.",
-        "Homeowner requested written follow-up.",
-      ],
-      nextSteps: ["Send written quote.", "Include a typical savings range, not a guarantee."],
-    },
-    comments: [],
-  },
-
-  /* ---------------- Two days ago ---------------- */
   {
     id: "call-brennan",
     name: "Brennan Roof Inspection",
     repId: "u-priya",
-    daysAgo: 2,
+    daysAgo: 1,
     hour: 13,
     minute: 5,
     durationSeconds: BRENNAN_DURATION,
@@ -825,7 +491,7 @@ export const CALLS: DemoCall[] = [
         id: "cm-brennan-1",
         authorId: "u-dana",
         body: "Admitting the ridge vent issue was the right call and I want the rest of the team to hear how you did it. Can I use this clip in Monday's meeting?",
-        daysAgo: 2,
+        daysAgo: 1,
         hour: 17,
         minute: 40,
         timestampMs: 535_000,
@@ -835,24 +501,12 @@ export const CALLS: DemoCall[] = [
         id: "cm-brennan-2",
         authorId: "u-priya",
         body: "Of course. Fair warning, I say 'um' about forty times.",
-        daysAgo: 2,
+        daysAgo: 1,
         hour: 18,
         minute: 2,
         timestampMs: null,
         parentId: "cm-brennan-1",
       },
-    ],
-    scorecard: [
-      { criterionId: "c-rapport", result: "met", explanation: "Confirmed timing and moved straight to the homeowner's stated problem.", confidence: 0.9 },
-      { criterionId: "c-discovery", result: "met", explanation: "Asked for the denial letter and probed the exact wording used.", confidence: 0.93 },
-      { criterionId: "c-consequence", result: "partially_met", explanation: "Explained the damage thoroughly but spent little time on what happens if it goes unrepaired.", confidence: 0.74 },
-      { criterionId: "c-decision-maker", result: "not_met", explanation: "No confirmation of who else is involved in the decision.", confidence: 0.86 },
-      { criterionId: "c-solution", result: "met", explanation: "Clear two-path plan: appeal first, replacement quote as fallback.", confidence: 0.92 },
-      { criterionId: "c-trust", result: "met", explanation: "Conceded the ventilation deficiency, which strengthened the hail argument.", confidence: 0.96 },
-      { criterionId: "c-financing", result: "not_met", explanation: "The $24,800 fallback was presented with no payment options.", confidence: 0.91 },
-      { criterionId: "c-objections", result: "met", explanation: "Directly addressed 'why did he deny it' and 'what if they say no again'.", confidence: 0.89 },
-      { criterionId: "c-close", result: "met", explanation: "Secured a decision to appeal and authorisation to represent.", confidence: 0.87 },
-      { criterionId: "c-next-step", result: "met", explanation: "Specific deliverable, owner and deadline agreed.", confidence: 0.94 },
     ],
   },
   {
@@ -862,22 +516,9 @@ export const CALLS: DemoCall[] = [
     daysAgo: 2,
     hour: 9,
     minute: 50,
-    durationSeconds: 933,
+    durationSeconds: CASTELLANOS_DURATION,
     status: "ready",
-    utterances: shortScript(
-      [
-        ["A", 2, "You said it's leaking — is it dripping or is there standing water?"],
-        ["B", 7, "There's a puddle. It's been there a few days."],
-        ["A", 12, "Okay, let me look at where it's coming from, because that changes everything."],
-        ["A", 200, "It's the tank, not a fitting. That's not repairable."],
-        ["B", 208, "How long do I have?"],
-        ["A", 212, "Days, realistically. When it goes it'll empty forty gallons onto that floor."],
-        ["B", 220, "That's the finished basement."],
-        ["A", 224, "That's why I'd do it this week. Standard fifty-gallon, installed, eighteen fifty. I can do Thursday."],
-        ["B", 235, "Do Thursday."],
-      ],
-      933,
-    ),
+    utterances: castellanosUtterances,
     summary: {
       participantsContext:
         "Tomas Vega responded to a water heater leak at the Castellanos home, above a finished basement.",
@@ -888,228 +529,14 @@ export const CALLS: DemoCall[] = [
         "Finished basement below created genuine urgency.",
         "Closed same-visit.",
       ],
-      nextSteps: ["Thursday installation confirmed.", "Send confirmation and arrival window."],
-    },
-    comments: [],
-  },
-  {
-    id: "call-ferraro",
-    name: "Ferraro Siding Walkthrough",
-    repId: "u-sofia",
-    daysAgo: 2,
-    hour: 15,
-    minute: 45,
-    durationSeconds: 1987,
-    status: "failed",
-    errorMessage:
-      "Transcription failed: the uploaded audio contains no detectable speech in the first 4 minutes. This usually means the microphone was obstructed or the device was in a pocket.",
-    utterances: [],
-    comments: [],
-  },
-
-  /* ---------------- Four days ago ---------------- */
-  {
-    id: "call-ibarra",
-    name: "Ibarra Duct Cleaning",
-    repId: "u-marcus",
-    daysAgo: 4,
-    hour: 8,
-    minute: 40,
-    durationSeconds: 464,
-    status: "ready",
-    utterances: shortScript(
-      [
-        ["A", 2, "Before we talk duct cleaning — has anyone in the house started having allergy symptoms, or is this preventative?"],
-        ["B", 9, "My son. Since we moved in, honestly."],
-        ["A", 15, "How long ago was that?"],
-        ["B", 18, "Eight months."],
-        ["A", 22, "Then I'd want to look at the ducts, but I'd also want to check whether there's moisture, because eight months of symptoms in a new house is usually not dust."],
-        ["B", 33, "Nobody's mentioned moisture."],
-        ["A", 37, "Might be nothing. But cleaning ducts that have a moisture problem just means you clean them again next year."],
-        ["B", 46, "Go ahead and check."],
-      ],
-      464,
-    ),
-    summary: {
-      participantsContext:
-        "Marcus Ellery was called for a duct cleaning quote and instead investigated a possible underlying cause.",
-      summary:
-        "Rather than quoting the requested service, Marcus probed why the homeowner wanted it and surfaced eight months of allergy symptoms in a child since moving in. He advised checking for moisture before cleaning, on the grounds that cleaning alone would not resolve a moisture-driven problem.",
-      mainTakeaways: [
-        "Requested service may not address the actual problem.",
-        "Eight months of symptoms suggests moisture, not dust.",
-        "Homeowner agreed to a moisture inspection.",
-      ],
-      nextSteps: ["Complete the moisture inspection.", "Re-quote based on findings."],
-    },
-    comments: [],
-  },
-  {
-    id: "call-lindqvist",
-    name: "Lindqvist Solar Consult",
-    repId: "u-priya",
-    daysAgo: 4,
-    hour: 12,
-    minute: 10,
-    durationSeconds: 1579,
-    status: "ready",
-    utterances: shortScript(
-      [
-        ["A", 3, "What's driving the interest — is it the bills, or is it more the environmental side?"],
-        ["B", 10, "Both, but mostly we just got a quote for a new roof and figured we'd do it all at once."],
-        ["A", 19, "That's the right order to think about it. You never want panels on a roof that's about to be replaced."],
-        ["B", 28, "That's what I thought."],
-        ["A", 32, "How old is the roof?"],
-        ["B", 35, "Nineteen years."],
-        ["A", 39, "Then yes, roof first, absolutely. And if you do both together the mounting goes on during the roof install, which saves you about two thousand."],
-        ["B", 50, "Nobody told me that either."],
-      ],
-      1579,
-    ),
-    summary: {
-      participantsContext:
-        "Priya Raman consulted with the Lindqvist household about a solar installation alongside a planned roof replacement.",
-      summary:
-        "Priya confirmed the homeowners' instinct to replace the 19-year-old roof before installing panels, and identified roughly $2,000 in savings from sequencing the mounting hardware during the roof install rather than after.",
-      mainTakeaways: [
-        "Roof is 19 years old — must precede solar.",
-        "Combined scheduling saves approximately $2,000.",
-        "Homeowners are motivated by both cost and environmental factors.",
-      ],
-      nextSteps: ["Coordinate a combined roof-and-solar timeline.", "Provide a combined quote."],
-    },
-    comments: [],
-  },
-
-  /* ---------------- Six days ago ---------------- */
-  {
-    id: "call-ashford",
-    name: "Ashford Gutter Replacement",
-    repId: "u-tomas",
-    daysAgo: 6,
-    hour: 10,
-    minute: 25,
-    durationSeconds: 1142,
-    status: "ready",
-    utterances: shortScript(
-      [
-        ["A", 2, "The overflow you're seeing — is it all the way around or just this corner?"],
-        ["B", 8, "Just this corner, but it's been doing it for years."],
-        ["A", 14, "That's a pitch issue then, not a capacity issue. You may not need all new gutters."],
-        ["B", 22, "The last company said full replacement."],
-        ["A", 27, "You might get there eventually. But re-hanging this run is four hundred, and full replacement is thirty-two hundred."],
-        ["B", 37, "Start with the four hundred."],
-        ["A", 41, "That's what I'd do. If it's still overflowing after a real storm, call me and we'll credit it toward the bigger job."],
-      ],
-      1142,
-    ),
-    summary: {
-      participantsContext:
-        "Tomas Vega assessed a localised gutter overflow at the Ashford property.",
-      summary:
-        "Tomas diagnosed a pitch problem affecting a single run rather than a capacity problem requiring full replacement, contradicting a previous company's recommendation. He proposed a $400 re-hang over a $3,200 replacement and offered to credit the smaller job toward the larger one if it proved insufficient.",
-      mainTakeaways: [
-        "Localised pitch issue, not system-wide failure.",
-        "Previous vendor recommended an unnecessary full replacement.",
-        "Credit-forward offer removed the risk of starting small.",
-      ],
-      nextSteps: ["Schedule the re-hang.", "Follow up after the next significant storm."],
-    },
-    comments: [],
-  },
-  {
-    id: "call-moreau",
-    name: "Moreau Heat Pump Assessment",
-    repId: "u-sofia",
-    daysAgo: 6,
-    hour: 14,
-    minute: 55,
-    durationSeconds: 1908,
-    status: "ready",
-    utterances: shortScript(
-      [
-        ["A", 3, "You mentioned on the phone you're thinking about a heat pump — what prompted that?"],
-        ["B", 9, "The rebate. It expires in March, apparently."],
-        ["A", 15, "It does. Though I'd rather you get the right system than the rebated one, if those turn out to be different."],
-        ["B", 24, "Are they?"],
-        ["A", 27, "Depends on your ductwork. Heat pumps move more air at a lower temperature, so undersized ducts that work fine with a furnace can be noisy and uneven with a pump."],
-        ["B", 40, "And mine?"],
-        ["A", 43, "Mostly fine. The run to the back bedroom is undersized. I'd want to fix that as part of it, not after."],
-        ["B", 52, "Price it both ways for me."],
-      ],
-      1908,
-    ),
-    summary: {
-      participantsContext:
-        "Sofia Brandt assessed the Moreau home for a heat pump conversion driven by an expiring March rebate.",
-      summary:
-        "Sofia cautioned against letting the rebate deadline drive the system choice and explained how heat pump airflow characteristics interact with existing ductwork. She identified an undersized run to the back bedroom and recommended addressing it as part of the installation rather than afterwards.",
-      mainTakeaways: [
-        "Rebate deadline is the primary motivator — a timing risk.",
-        "Undersized duct run to the back bedroom needs correcting.",
-        "Homeowner requested pricing both with and without duct work.",
-      ],
       nextSteps: [
-        "Provide two quotes: with and without the duct correction.",
-        "Confirm the rebate deadline in writing.",
+        "Thursday installation confirmed.",
+        "Send confirmation and arrival window.",
       ],
     },
-    comments: [
-      {
-        id: "cm-moreau-1",
-        authorId: "u-dana",
-        body: "Nice work not letting the rebate rush the sizing conversation. That's how we end up with callbacks in July.",
-        daysAgo: 5,
-        hour: 9,
-        minute: 15,
-        timestampMs: 15_000,
-        parentId: null,
-      },
-    ],
-  },
-];
-
-/* ------------------------------------------------------------------------ */
-/* Mobile-only local rows — recordings that never reached the server          */
-/* ------------------------------------------------------------------------ */
-
-/**
- * These exist only on the device, so they appear in the mobile feed and nowhere
- * on the web. They exist to make the failure-state labels reachable without
- * waiting for anything: "Upload failed — tap to retry" and "Interrupted — tap
- * to retry".
- */
-export interface DemoLocalOnlyRecording {
-  id: string;
-  name: string;
-  repId: PersonId;
-  daysAgo: number;
-  hour: number;
-  minute: number;
-  durationSeconds: number;
-  kind: "upload_failed" | "interrupted";
-}
-
-export const LOCAL_ONLY_RECORDINGS: DemoLocalOnlyRecording[] = [
-  {
-    id: "local-upload-failed",
-    name: "Pearson Driveway Estimate",
-    repId: "u-marcus",
-    daysAgo: 0,
-    hour: 7,
-    minute: 35,
-    durationSeconds: 612,
-    kind: "upload_failed",
-  },
-  {
-    id: "local-interrupted",
-    name: "Vasquez Chimney Look",
-    repId: "u-marcus",
-    daysAgo: 1,
-    hour: 16,
-    minute: 48,
-    durationSeconds: 244,
-    kind: "interrupted",
+    // No coaching yet — deliberately, so the Coaching inbox has an example of a
+    // call that hasn't been reviewed.
+    comments: [],
   },
 ];
 
@@ -1128,13 +555,7 @@ export const TEAMS: DemoTeam[] = [
   {
     id: "team-north",
     name: "North Territory",
-    memberIds: ["u-marcus", "u-priya"],
-    managerIds: ["u-dana"],
-  },
-  {
-    id: "team-south",
-    name: "South Territory",
-    memberIds: ["u-tomas", "u-sofia"],
+    memberIds: ["u-marcus", "u-priya", "u-tomas"],
     managerIds: ["u-dana"],
   },
 ];
@@ -1158,7 +579,7 @@ export const ORGANIZATIONS: DemoOrganization[] = [
     name: ORGANIZATION.name,
     slug: ORGANIZATION.slug,
     status: "active",
-    activeMembers: 5,
+    activeMembers: 4,
     createdDaysAgo: 412,
   },
   {
@@ -1186,14 +607,14 @@ export const ORGANIZATIONS: DemoOrganization[] = [
 /**
  * When the demo "finishes" a recording, the scripted pipeline eventually
  * attaches this content so the new call opens onto something real rather than
- * an empty shell.
+ * an empty shell. Used by the mobile app, which is where recording happens.
  */
 export const FRESH_CALL_CONTENT: {
   utterances: DemoUtterance[];
   summary: DemoSummary;
   insights: DemoInsights;
 } = {
-  utterances: shortScript(
+  utterances: script(
     [
       ["A", 2, "Thanks for making time this morning — before I look at anything, tell me what's been happening."],
       ["B", 9, "It's the noise mostly. And the upstairs never gets warm."],

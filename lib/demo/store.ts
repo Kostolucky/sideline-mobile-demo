@@ -24,7 +24,6 @@ import type { LocalRecording } from "@/lib/recording/types";
 import type { MemberRole } from "@/lib/auth";
 import {
   CALLS,
-  LOCAL_ONLY_RECORDINGS,
   DEFAULT_PERSONA_ID,
   ORGANIZATION,
   PEOPLE,
@@ -104,42 +103,6 @@ function toRecording(call: DemoCall): LocalRecording {
   };
 }
 
-/**
- * Two rows that exist only on the device and never reached the server.
- *
- * They are here so the failure labels — "Upload failed — tap to retry" and
- * "Interrupted — tap to retry" — are reachable on the feed immediately, without
- * having to break something to see them.
- */
-function localOnlyRecordings(): LocalRecording[] {
-  return LOCAL_ONLY_RECORDINGS.map((r) => {
-    const startedAt = atDaysAgo(r.daysAgo, r.hour, r.minute);
-    const durationMs = r.durationSeconds * 1000;
-    const interrupted = r.kind === "interrupted";
-    return {
-      id: r.id,
-      conversationId: null,
-      organizationId: ORGANIZATION.id,
-      userId: r.repId,
-      name: r.name,
-      startedAt,
-      endedAt: interrupted ? null : startedAt + durationMs,
-      durationMs,
-      fileUri: `file:///demo/${r.id}.m4a`,
-      mimeType: "audio/mp4",
-      sizeBytes: Math.round(r.durationSeconds * 4_000),
-      storagePath: null,
-      recordingState: interrupted ? ("interrupted" as const) : ("stopped" as const),
-      uploadState: interrupted ? ("saved_local" as const) : ("upload_failed" as const),
-      retryCount: interrupted ? 0 : 2,
-      lastError: interrupted ? null : "Network request failed",
-      notes: null,
-      createdAt: startedAt,
-      updatedAt: startedAt + durationMs,
-    };
-  });
-}
-
 export function buildInitialState(): DemoState {
   const calls: Record<string, Call> = {};
   const summaries: Record<string, CallSummary> = {};
@@ -216,10 +179,9 @@ export function buildInitialState(): DemoState {
 
   comments.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
 
-  const recordings = [
-    ...CALLS.map(toRecording),
-    ...localOnlyRecordings(),
-  ].sort((a, b) => b.startedAt - a.startedAt);
+  const recordings = CALLS.map(toRecording).sort(
+    (a, b) => b.startedAt - a.startedAt,
+  );
 
   return {
     personaId: DEFAULT_PERSONA_ID,
