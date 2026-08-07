@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing } from "@/constants/tokens";
 import { Text } from "@/components/ui/text";
 import { AppHeader } from "@/components/sideline/app-header";
-import { bottomNavPadding } from "@/components/sideline/bottom-nav";
+import { HomeFooter, homeFooterPadding } from "@/components/sideline/home-footer";
 import { ConversationRow } from "@/components/sideline/conversation-row";
 import { RepFilter } from "@/components/sideline/rep-filter";
 import {
@@ -32,11 +32,13 @@ import { ADMIN_PERSON_ID, REP_PERSON_ID } from "@/lib/demo/content";
 import type { LocalRecording } from "@/lib/recording/types";
 
 /**
- * Calls — the call history feed, and the app's landing screen.
+ * Calls — the call history feed, and the app's only destination.
  *
- * Recording used to start from a floating button on this screen; it now lives
- * in the persistent bottom navigation, so the FAB is gone and the list simply
- * pads itself clear of the nav.
+ * It briefly sat behind a three-option tab bar. That bar navigated between one
+ * real place and a coaching inbox that duplicated it, so it is gone: coaching
+ * lives inside a call, next to the transcript it is about. What sits at the
+ * bottom now is what you do next — ask something, or record something. See
+ * `HomeFooter`.
  */
 export default function CallsScreen() {
   const router = useRouter();
@@ -144,7 +146,7 @@ export default function CallsScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.list,
-          { paddingBottom: bottomNavPadding(insets.bottom) },
+          { paddingBottom: homeFooterPadding(insets.bottom) },
         ]}
         refreshControl={
           <RefreshControl
@@ -191,6 +193,8 @@ export default function CallsScreen() {
           ))
         )}
       </ScrollView>
+
+      <HomeFooter onNew={() => router.push("/record")} />
     </View>
   );
 }

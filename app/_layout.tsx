@@ -13,7 +13,7 @@ import { SessionProvider } from "@/lib/auth";
 SplashScreen.preventAutoHideAsync();
 
 export const unstable_settings = {
-  anchor: "(tabs)",
+  anchor: "index",
 };
 
 /**
@@ -61,8 +61,8 @@ export default function RootLayout() {
               contentStyle: { backgroundColor: colors.background },
             }}
           >
-            {/* Calls + Coaching, behind the persistent bottom navigation. */}
-            <Stack.Screen name="(tabs)" />
+            {/* The call feed — the app's only destination. */}
+            <Stack.Screen name="index" />
             {/* Capture slides up over whichever tab you were on, so closing it
                 returns you there. It is an action, not a tab. */}
             <Stack.Screen
