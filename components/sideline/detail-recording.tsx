@@ -32,7 +32,7 @@ export function DetailRecording({
   onScrubEnd,
 }: {
   detail: ConversationDetail;
-  /** Owned by the parent so the Feedback pane can seek into the same audio. */
+  /** Owned by the parent so playback survives a swipe between panes. */
   player: SimulatedPlayer;
   status: SimulatedPlayerStatus;
   /**

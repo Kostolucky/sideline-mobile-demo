@@ -8,14 +8,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { PressableScale } from "@/components/ui/pressable-scale";
 import { Text } from "@/components/ui/text";
-import { useSession, type MemberRole } from "@/lib/auth";
+import { useSession } from "@/lib/auth";
 import { resetDemo } from "@/lib/demo/store";
-
-/** Two roles only, and the same words the web app uses. */
-const ROLE_LABEL: Record<MemberRole, string> = {
-  admin: "Admin",
-  member: "User",
-};
 
 /** Initials for the avatar, derived from the account email. */
 function initialsFrom(email: string | undefined): string {
@@ -33,22 +27,20 @@ function initialsFrom(email: string | undefined): string {
  * on, which put it in the same stacking context as that screen's ScrollView —
  * so the list painted straight over it. A pushed screen has no such problem,
  * and it also means the bottom navigation is correctly absent here: this is a
- * detour out of the app's three primary actions, not a fourth one.
+ * detour out of the app's primary actions, not one of them.
+ *
+ * There is no "viewing as" control: this app is one rep's workspace and has no
+ * second role to switch into.
  */
 export default function AccountScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { session, membership, setPersonaId, personaIds } = useSession();
+  const { session } = useSession();
 
   const [confirmSignOut, setConfirmSignOut] = useState(false);
 
+  const name = session?.user.name ?? "—";
   const email = session?.user.email ?? "—";
-  const role = membership?.role ?? "member";
-
-  const options = [
-    { id: personaIds.admin, label: "Admin" },
-    { id: personaIds.rep, label: "User" },
-  ];
 
   return (
     <View style={styles.fill}>
@@ -79,45 +71,12 @@ export default function AccountScreen() {
           </View>
           <View style={styles.identityText}>
             <Text variant="subheading" numberOfLines={1}>
+              {name}
+            </Text>
+            <Text variant="label" tone="muted" numberOfLines={1}>
               {email}
             </Text>
-            <Text variant="label" tone="muted">
-              {ROLE_LABEL[role]} · Demo
-            </Text>
           </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text variant="sectionLabel" tone="muted">
-            Viewing as
-          </Text>
-          <View style={styles.personaTrack}>
-            {options.map((option) => {
-              const selected = session?.user.id === option.id;
-              return (
-                <PressableScale
-                  key={option.id}
-                  activeScale={0.97}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                  onPress={() => setPersonaId(option.id)}
-                  style={[
-                    styles.personaOption,
-                    selected && styles.personaSelected,
-                  ]}
-                >
-                  <Text variant="label" tone={selected ? "onBrand" : "muted"}>
-                    {option.label}
-                  </Text>
-                </PressableScale>
-              );
-            })}
-          </View>
-          <Text variant="meta" tone="muted" style={styles.sectionNote}>
-            An Admin sees every call in the workspace and can start coaching
-            threads. A User sees only the calls they recorded, and replies to
-            coaching rather than opening it.
-          </Text>
         </View>
 
         <View style={styles.section}>
@@ -189,21 +148,6 @@ const styles = StyleSheet.create({
   identityText: { flex: 1, gap: 2 },
   section: { marginTop: spacing["3xl"], gap: spacing.sm },
   sectionNote: { lineHeight: 16 },
-  personaTrack: {
-    flexDirection: "row",
-    backgroundColor: colors.secondary,
-    borderRadius: radius.full,
-    padding: 3,
-    gap: 3,
-  },
-  personaOption: {
-    flex: 1,
-    height: 38,
-    borderRadius: radius.full,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  personaSelected: { backgroundColor: colors.brand },
   reset: {
     height: 52,
     borderRadius: radius.xl,

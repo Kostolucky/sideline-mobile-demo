@@ -49,19 +49,6 @@ export interface ConversationAnalysis {
   result: unknown;
 }
 
-export interface Comment {
-  id: string;
-  call_id: string;
-  author_user_id: string;
-  target_rep_user_id: string;
-  body: string;
-  /** Playback offset this message is anchored to, if any. */
-  timestamp_ms: number | null;
-  parent_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface Utterance {
   id: string;
   call_id: string;
@@ -77,7 +64,6 @@ export interface ConversationDetail {
   call: Call;
   summary: CallSummary | null;
   analysis: ConversationAnalysis | null;
-  comments: Comment[];
   utterances: Utterance[];
   /**
    * Null in the demo unless a real file is dropped into `assets/audio` — the
@@ -93,8 +79,4 @@ export type PatchResult = { ok: true } | { ok: false; error: string };
 
 export type RenameResult =
   | { ok: true; name: string }
-  | { ok: false; error: string };
-
-export type PostCommentResult =
-  | { ok: true; comment: Comment }
   | { ok: false; error: string };

@@ -10,50 +10,49 @@
  * queue in `lib/upload/service.ts`. State is in memory only — a reload restores
  * the pristine fixtures, which is what you want between demos, and
  * `resetDemo()` does the same thing mid-session.
+ *
+ * ONE PERSON LIVES HERE. The phone is a sales rep's personal workspace: it
+ * holds the calls they recorded and nothing else. There is no persona to
+ * switch, no roster, and no manager view — reviewing a team's calls is the web
+ * app's job. So the store is seeded from the narrative filtered to
+ * `REP_PERSON_ID`, and every screen can assume the current user owns whatever
+ * it is showing.
  */
 
 import type {
   Call,
   CallSummary,
-  Comment,
   ConversationAnalysis,
   ConversationDetail,
   Utterance,
 } from "@/lib/data";
 import type { LocalRecording } from "@/lib/recording/types";
-import type { MemberRole } from "@/lib/auth";
 import {
   CALLS,
-  DEFAULT_PERSONA_ID,
   ORGANIZATION,
-  PEOPLE,
+  REP_PERSON_ID,
   atDaysAgo,
-  isoDaysAgo,
+  personById,
   type DemoCall,
 } from "./content";
 import { AUDIO_OVERRIDES } from "./timings";
 
-export interface DemoMember {
+export interface DemoUser {
   userId: string;
   name: string;
   email: string;
-  role: MemberRole;
 }
 
 export interface DemoState {
-  /** Whose eyes we are looking through. Drives every permission in the UI. */
-  personaId: string;
+  /** The rep using the app. The only person this client knows about. */
+  user: DemoUser;
   organizationId: string;
-  members: DemoMember[];
   /** The feed. Mirrors what the SQLite manifest holds in production. */
   recordings: LocalRecording[];
   calls: Record<string, Call>;
   summaries: Record<string, CallSummary>;
   analyses: Record<string, ConversationAnalysis>;
   utterances: Record<string, Utterance[]>;
-  comments: Comment[];
-  /** `${userId}::${callId}` -> ISO read watermark. Per-person, like production. */
-  coachingReads: Record<string, string>;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -103,14 +102,27 @@ function toRecording(call: DemoCall): LocalRecording {
   };
 }
 
+function currentUser(): DemoUser {
+  const person = personById(REP_PERSON_ID);
+  // The narrative always contains this person; the fallback keeps the store
+  // total rather than throwing during module load.
+  return {
+    userId: REP_PERSON_ID,
+    name: person?.name ?? "Sales Rep",
+    email: person?.email ?? "rep@example.com",
+  };
+}
+
 export function buildInitialState(): DemoState {
   const calls: Record<string, Call> = {};
   const summaries: Record<string, CallSummary> = {};
   const analyses: Record<string, ConversationAnalysis> = {};
   const utterances: Record<string, Utterance[]> = {};
-  const comments: Comment[] = [];
 
-  for (const call of CALLS) {
+  // Only this rep's own work reaches the phone.
+  const mine = CALLS.filter((c) => c.repId === REP_PERSON_ID);
+
+  for (const call of mine) {
     calls[call.id] = {
       id: call.id,
       name: call.name,
@@ -155,69 +167,25 @@ export function buildInitialState(): DemoState {
           primary_improvement: call.insights.primaryImprovement,
           objections: call.insights.objections,
           next_steps: call.insights.nextSteps,
-          coaching_note: call.insights.coachingNote,
           customer_follow_up_draft: call.insights.customerFollowUpDraft,
         },
       };
     }
-
-    for (const c of call.comments) {
-      const iso = isoDaysAgo(c.daysAgo, c.hour, c.minute);
-      comments.push({
-        id: c.id,
-        call_id: call.id,
-        author_user_id: c.authorId,
-        target_rep_user_id: call.repId,
-        body: c.body,
-        timestamp_ms: c.timestampMs,
-        parent_id: c.parentId,
-        created_at: iso,
-        updated_at: iso,
-      });
-    }
   }
 
-  comments.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
-
-  const recordings = CALLS.map(toRecording).sort(
+  const recordings = mine.map(toRecording).sort(
     (a, b) => b.startedAt - a.startedAt,
   );
 
   return {
-    personaId: DEFAULT_PERSONA_ID,
+    user: currentUser(),
     organizationId: ORGANIZATION.id,
-    members: PEOPLE.map((p) => ({
-      userId: p.id,
-      name: p.name,
-      email: p.email,
-      role: p.role,
-    })),
     recordings,
     calls,
     summaries,
     analyses,
     utterances,
-    comments,
-    coachingReads: seedReads(),
   };
-}
-
-/**
- * Seed read watermarks so some coaching starts unread and some doesn't.
- *
- * Everyone has "read up to 36 hours ago", which leaves anything written since
- * then unread to whoever didn't write it. That's how the feed has visible
- * badges on first paint without hand-marking individual rows.
- */
-function seedReads(): Record<string, string> {
-  const watermark = new Date(Date.now() - 36 * 3_600_000).toISOString();
-  const reads: Record<string, string> = {};
-  for (const person of PEOPLE) {
-    for (const call of CALLS) {
-      reads[`${person.id}::${call.id}`] = watermark;
-    }
-  }
-  return reads;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -253,84 +221,25 @@ function update(patch: Partial<DemoState>): void {
 /* Selectors                                                                  */
 /* ------------------------------------------------------------------------ */
 
-export function currentMember(s: DemoState = state): DemoMember {
-  return s.members.find((m) => m.userId === s.personaId) ?? s.members[0];
-}
-
-export function isAdmin(s: DemoState = state): boolean {
-  return currentMember(s).role === "admin";
-}
-
-/**
- * What this persona is allowed to see.
- *
- * Production enforces this in the database (RLS), so a rep's feed simply comes
- * back with their own calls and there is no client-side filter to copy. With no
- * database, that scoping has to live here — this is the one place it happens.
- * The Admin rep filter (`filterByRep`) narrows this further, and can only ever
- * narrow.
- */
-export function visibleRecordings(s: DemoState = state): LocalRecording[] {
-  if (isAdmin(s)) return s.recordings;
-  return s.recordings.filter((r) => r.userId === s.personaId);
-}
-
-export function namesByUserId(s: DemoState = state): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const m of s.members) out[m.userId] = m.name;
-  return out;
-}
-
 export function getConversationDetail(
   callId: string,
   s: DemoState = state,
 ): ConversationDetail | null {
   const call = s.calls[callId];
   if (!call) return null;
-  // Respect the same scoping the feed uses — a rep deep-linked into someone
-  // else's call should get the "not found" state, as they would in production.
-  if (!isAdmin(s) && call.recorded_by !== s.personaId) return null;
 
   return {
     call,
     summary: s.summaries[callId] ?? null,
     analysis: s.analyses[callId] ?? null,
-    comments: s.comments
-      .filter((c) => c.call_id === callId)
-      .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)),
     utterances: s.utterances[callId] ?? [],
     audioUrl: AUDIO_OVERRIDES[callId] ?? null,
   };
 }
 
-/** call id -> unread coaching count for the current persona. */
-export function unreadCoachingCounts(s: DemoState = state): Record<string, number> {
-  const visible = new Set(
-    visibleRecordings(s)
-      .map((r) => r.conversationId)
-      .filter((id): id is string => !!id),
-  );
-  const out: Record<string, number> = {};
-
-  for (const c of s.comments) {
-    if (!visible.has(c.call_id)) continue;
-    // Never tell people their own message is news to them.
-    if (c.author_user_id === s.personaId) continue;
-    const lastRead = s.coachingReads[`${s.personaId}::${c.call_id}`];
-    if (!lastRead || Date.parse(c.created_at) > Date.parse(lastRead)) {
-      out[c.call_id] = (out[c.call_id] ?? 0) + 1;
-    }
-  }
-  return out;
-}
-
 /* ------------------------------------------------------------------------ */
 /* Mutations                                                                  */
 /* ------------------------------------------------------------------------ */
-
-export function setPersona(personaId: string): void {
-  update({ personaId });
-}
 
 export function resetDemo(): void {
   commit(buildInitialState());
@@ -367,64 +276,6 @@ export function saveNotes(callId: string, notes: string): void {
   });
 }
 
-export function addComment(
-  callId: string,
-  body: string,
-  timestampMs: number | null,
-): Comment {
-  const call = state.calls[callId];
-  const iso = new Date().toISOString();
-  const comment: Comment = {
-    id: nextId("cm"),
-    call_id: callId,
-    author_user_id: state.personaId,
-    target_rep_user_id: call?.recorded_by ?? state.personaId,
-    body: body.trim(),
-    timestamp_ms: timestampMs,
-    parent_id: null,
-    created_at: iso,
-    updated_at: iso,
-  };
-  update({ comments: [...state.comments, comment] });
-  return comment;
-}
-
-/** Inject a message from someone else — the scripted "incoming coaching". */
-export function injectIncomingComment(
-  callId: string,
-  authorId: string,
-  body: string,
-): void {
-  const call = state.calls[callId];
-  if (!call) return;
-  const iso = new Date().toISOString();
-  update({
-    comments: [
-      ...state.comments,
-      {
-        id: nextId("cm-incoming"),
-        call_id: callId,
-        author_user_id: authorId,
-        target_rep_user_id: call.recorded_by,
-        body,
-        timestamp_ms: null,
-        parent_id: null,
-        created_at: iso,
-        updated_at: iso,
-      },
-    ],
-  });
-}
-
-export function markCoachingRead(callId: string, upTo: string): void {
-  update({
-    coachingReads: {
-      ...state.coachingReads,
-      [`${state.personaId}::${callId}`]: upTo,
-    },
-  });
-}
-
 /* ---- Recording lifecycle ---- */
 
 /** Open a new local row the moment capture starts, as production does. */
@@ -437,7 +288,7 @@ export function createRecording(name: string): string {
         id,
         conversationId: null,
         organizationId: state.organizationId,
-        userId: state.personaId,
+        userId: state.user.userId,
         name,
         startedAt: now,
         endedAt: null,

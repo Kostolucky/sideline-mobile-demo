@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -19,71 +19,41 @@ import { colors, radius, spacing, type } from "@/constants/tokens";
 import { IconButton } from "@/components/ui/icon-button";
 import { PressableScale } from "@/components/ui/pressable-scale";
 import { Text } from "@/components/ui/text";
-import { DetailCoaching } from "@/components/sideline/detail-coaching";
 import { DetailRecording } from "@/components/sideline/detail-recording";
 import { DetailSummary } from "@/components/sideline/detail-summary";
 import { formatRecordedAt } from "@/lib/calls/detail";
-import { useSession } from "@/lib/auth";
 import { useDemoState } from "@/lib/demo/use-demo";
 import { useSimulatedPlayer } from "@/hooks/use-simulated-player";
 import {
-  addComment,
   getConversationDetail,
-  markCoachingRead,
-  namesByUserId,
   renameCall,
   saveNotes as saveNotesToStore,
-  unreadCoachingCounts,
 } from "@/lib/demo/store";
 
-const TABS = ["Summary", "Recording", "Coaching"] as const;
-
-/** Index of the Coaching pane — the one that carries an unread badge. */
-const COACHING_TAB = 2;
-
-/**
- * Route param names for the pane to open on, so callers don't pass raw indices
- * around. The Coaching inbox uses `"coaching"`; everything else lands on
- * Summary, which is the default read order for a call.
- */
-const INITIAL_TAB: Record<string, number> = {
-  summary: 0,
-  recording: 1,
-  coaching: COACHING_TAB,
-};
+const TABS = ["Summary", "Recording"] as const;
 
 /**
  * A completed call. The title and its date line stay fixed while the body
- * swipes horizontally between three panes.
+ * swipes horizontally between two panes: what the call was about, and the
+ * recording itself with its transcript.
  *
  * Uses a paging ScrollView rather than a pager library — `react-native-pager-view`
  * isn't in the Expo Go binary, and paging ScrollView is core RN.
  *
- * The player lives here, not in the Recording pane, so a timestamped message in
- * the Coaching pane can seek the same audio. In this demo it's a simulated
- * clock (see `useSimulatedPlayer`), which is what keeps the app free of native
- * modules — but it exposes the same shape `expo-audio` does, so the panes below
- * are untouched.
- *
- * Production polls the thread every 5 seconds because there's no push channel.
- * The demo store notifies subscribers the moment anything changes, so the poll
- * is gone.
+ * The player lives here rather than in the Recording pane so playback survives
+ * a swipe back to Summary. In this demo it's a simulated clock (see
+ * `useSimulatedPlayer`), which is what keeps the app free of native modules —
+ * but it exposes the same shape `expo-audio` does, so the panes below are
+ * untouched.
  */
 export default function ConversationDetailScreen() {
-  const { id, initialTab } = useLocalSearchParams<{
-    id: string;
-    /** Which pane to open on. Set by the Coaching inbox; absent elsewhere. */
-    initialTab?: string;
-  }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { session, membership } = useSession();
   const state = useDemoState();
 
-  const startIndex = INITIAL_TAB[initialTab ?? ""] ?? 0;
-
-  const [active, setActive] = useState(startIndex);
+  const [active, setActive] = useState(0);
   const [pagingEnabled, setPagingEnabled] = useState(true);
 
   // Inline rename, matching the pencil affordance the web app has.
@@ -93,40 +63,13 @@ export default function ConversationDetailScreen() {
   const [nameError, setNameError] = useState<string | null>(null);
 
   const pagerRef = useRef<ScrollView>(null);
-  const indicator = useSharedValue(startIndex);
-  /** Guards the one-time jump to `initialTab` so a re-layout can't re-trigger it. */
-  const jumpedToInitial = useRef(false);
+  const indicator = useSharedValue(0);
 
   const detail = id ? getConversationDetail(id, state) : null;
-  const memberNames = namesByUserId(state);
-  const unreadCoaching = id ? (unreadCoachingCounts(state)[id] ?? 0) : 0;
 
   const { player, status } = useSimulatedPlayer(
     detail?.call.duration_seconds ?? 0,
   );
-
-  /**
-   * Mark coaching read once the Coaching pane is actually open.
-   *
-   * The watermark is the newest message currently loaded — what the person was
-   * shown — rather than "now", so anything that lands afterwards is still
-   * unread. Arriving on Summary is not reading the conversation.
-   */
-  const markedUpTo = useRef<string | null>(null);
-  useEffect(() => {
-    if (active !== COACHING_TAB || !id || !detail) return;
-    const comments = detail.comments;
-    if (comments.length === 0) return;
-
-    const newest = comments.reduce(
-      (latest, c) =>
-        Date.parse(c.created_at) > Date.parse(latest) ? c.created_at : latest,
-      comments[0].created_at,
-    );
-    if (markedUpTo.current === newest) return;
-    markedUpTo.current = newest;
-    markCoachingRead(id, newest);
-  }, [active, id, detail]);
 
   function startEditName() {
     if (!detail) return;
@@ -169,22 +112,6 @@ export default function ConversationDetailScreen() {
     renameCall(detail.call.id, next);
     setSavingName(false);
     setEditingName(false);
-  }
-
-  /**
-   * Post a coaching message. Returns an error string for the composer, or null
-   * on success.
-   */
-  async function sendCoachingMessage(input: {
-    body: string;
-    timestampMs: number | null;
-  }): Promise<string | null> {
-    if (!id || !detail) return "Missing call.";
-    const body = input.body.trim();
-    if (!body) return "Write something first.";
-    if (body.length > 4_000) return "That message is too long.";
-    addComment(id, body, input.timestampMs);
-    return null;
   }
 
   const goTo = useCallback(
@@ -319,23 +246,9 @@ export default function ConversationDetailScreen() {
             accessibilityState={{ selected: active === i }}
             style={styles.tab}
           >
-            <View style={styles.tabLabel}>
-              <Text variant="label" tone={active === i ? "default" : "muted"}>
-                {label}
-              </Text>
-              {i === COACHING_TAB && unreadCoaching > 0 ? (
-                <View style={styles.tabBadge}>
-                  <Text
-                    variant="meta"
-                    tone="onBrand"
-                    tabular
-                    style={styles.tabBadgeText}
-                  >
-                    {unreadCoaching > 9 ? "9+" : unreadCoaching}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
+            <Text variant="label" tone={active === i ? "default" : "muted"}>
+              {label}
+            </Text>
           </PressableScale>
         ))}
         <Animated.View
@@ -354,21 +267,12 @@ export default function ConversationDetailScreen() {
         scrollEnabled={pagingEnabled}
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={(e) => onMomentumEnd(e.nativeEvent.contentOffset.x)}
-        // Jump straight to the requested pane once the width is known. Without
-        // animation, so arriving from the Coaching inbox lands on the thread
-        // rather than visibly sliding past Summary and Recording to get there.
-        onLayout={() => {
-          if (jumpedToInitial.current || startIndex === 0 || width === 0) return;
-          jumpedToInitial.current = true;
-          pagerRef.current?.scrollTo({ x: startIndex * width, animated: false });
-        }}
         style={styles.pager}
       >
         <View style={{ width }}>
           <DetailSummary
             detail={detail}
             notes={detail.call.notes}
-            canEditNotes={detail.call.recorded_by === session?.user.id}
             onSaveNotes={saveNotes}
             onEditingChange={(editing) => setPagingEnabled(!editing)}
             onChatWithNote={() =>
@@ -384,23 +288,6 @@ export default function ConversationDetailScreen() {
             hasRecording={hasRecording}
             onScrubStart={() => setPagingEnabled(false)}
             onScrubEnd={() => setPagingEnabled(true)}
-          />
-        </View>
-        <View style={{ width }}>
-          <DetailCoaching
-            detail={detail}
-            role={membership?.role ?? "member"}
-            viewerId={session?.user.id ?? null}
-            namesByUserId={memberNames}
-            currentPositionMs={status.currentTime * 1000}
-            canAttachMoment={hasRecording}
-            onSeek={(ms) => {
-              player.seekTo(ms / 1000);
-              player.play();
-              goTo(1);
-            }}
-            onSend={sendCoachingMessage}
-            onEditingChange={(editing) => setPagingEnabled(!editing)}
           />
         </View>
       </ScrollView>
@@ -461,17 +348,6 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   tab: { flex: 1, alignItems: "center", paddingTop: 4, paddingBottom: spacing.md },
-  tabLabel: { flexDirection: "row", alignItems: "center", gap: 6 },
-  tabBadge: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: radius.full,
-    backgroundColor: colors.brand,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 5,
-  },
-  tabBadgeText: { fontWeight: "700" },
   indicator: {
     position: "absolute",
     bottom: 0,
