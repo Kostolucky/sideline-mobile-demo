@@ -30,17 +30,6 @@ export const TIMINGS = {
     thinkingMs: 900,
     tokenMs: 26,
   },
-
-  /**
-   * A scripted coaching message arrives this long after the feed is first
-   * shown, so an unread badge visibly appears during a demo rather than being
-   * there from the start. Set `enabled: false` to switch the surprise off.
-   */
-  incomingCoaching: {
-    enabled: true,
-    afterMs: 20_000,
-    callId: "call-brennan",
-  },
 } as const;
 
 /**

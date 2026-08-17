@@ -4,6 +4,11 @@ A front-end-only recreation of the Sideline mobile app, for sales demos.
 
 It looks and behaves like the real thing. It is not the real thing.
 
+**The phone is a sales rep's personal workspace**: record a conversation,
+review your own calls, keep your own notes. There is no manager view, no role
+switch and no way to reach another rep's calls — reviewing a team's calls is
+the web app's job (`sideline-web-demo`).
+
 **No sign-in. No backend. No database. No environment variables. No API keys.**
 Everything on screen comes from `lib/demo/`. Recording, uploading, transcription
 and AI analysis are all simulated on a timer.
@@ -50,57 +55,50 @@ one.
 
 | Area | Behaviour |
 |---|---|
-| Call feed | Real. 12 calls plus 2 device-only rows, grouped by date. |
+| Call feed | Real. The signed-in rep's own calls, grouped by date. |
 | Date grouping | Real, and relative to today — always shows "Today"/"Yesterday". |
-| Admin / User roles | Real. Switch personas in the account sheet. |
 | Recording | **Simulated.** A timer, not a microphone. |
 | Upload → processing → ready | **Simulated.** ~12s scripted pipeline after you tap End. |
 | Playback | **Simulated.** A clock drives the scrubber and transcript highlighting. |
-| Transcript, summary, coaching | Real content, hardcoded. Nothing is generated. |
-| Coaching messages you send | Real, stored in memory for the session. |
-| Unread badges | Real, per-persona. One message arrives ~20s in, on purpose. |
+| Transcript and summary | Real content, hardcoded. Nothing is generated. |
+| Notes and renames | Real, stored in memory for the session. |
+| Chat with note | **Simulated.** The reply is the call's authored follow-up draft, streamed in. |
 
 State lives in memory. **Reload the app and the sample data is pristine again** —
 which is what you want between demos. There is also a *Reset demo data* button
-in the account sheet.
+on the Account screen.
 
 ---
 
 ## Navigation
 
-A persistent three-option bottom bar: **Calls · Record · Coaching**.
+There is one destination — the call feed — and everything else is something you
+do from it.
 
 ```
 app/_layout.tsx          root Stack
-├── (tabs)/              Tabs navigator + custom tabBar (BottomNav)
-│   ├── index.tsx        Calls  — the call feed, and the landing screen
-│   └── coaching.tsx     Coaching — an inbox of calls with coaching activity
-├── record.tsx           modal, presented over whichever tab you were on
-├── call/[id].tsx        call detail (Summary / Recording / Coaching panes)
-├── account.tsx          pushed screen: back arrow, no bottom nav
+├── index.tsx            Calls — the rep's own feed, and the landing screen
+├── record.tsx           modal, slides up over the feed
+├── call/[id].tsx        call detail (Summary / Recording panes)
+├── chat/[id].tsx        "Chat with note", opened from a call's Summary pane
+├── account.tsx          pushed screen: back arrow
 └── (auth)/sign-in.tsx   reachable, never gating
 ```
 
-The nav is **icon only** — three destinations with distinct shapes don't need
-captions, and the names still reach screen readers via `accessibilityLabel`.
+There is no tab bar. It used to carry **Calls · Record · Coaching**, which
+navigated between one real place, an action, and an inbox that duplicated the
+feed. What sits at the bottom of the feed now is what you do next — ask
+something, or record something (`HomeFooter`).
 
 **Account is a screen, not a sheet.** It began as a bottom sheet rendered inside
 whichever list screen you were on, which put it in the same stacking context as
 that screen's `ScrollView` — so the list painted over it and the sheet showed
-through the gaps between rows. A pushed screen has no such problem, and the
-bottom nav is correctly absent there: it's a detour out of the three primary
-actions, not a fourth one.
+through the gaps between rows. A pushed screen has no such problem.
 
-**Record is not a tab.** It's an action: `BottomNav` pushes `/record` onto the
-root stack, so it slides up over the current tab and closing it returns you
-there. Making it a tab would give it navigation state it has no use for, and
-would let you wander away from a half-finished recording.
-
-Calls and Coaching are real tabs, so each keeps its own scroll position and
-bouncing between them can never stack duplicate screens.
-
-A Coaching row opens the call **directly on its Coaching pane**, via
-`router.push({ pathname: "/call/[id]", params: { id, initialTab: "coaching" } })`.
+**Record is not a destination.** It's an action: the feed pushes `/record` onto
+the root stack, so it slides up and closing it returns you to the feed. Making
+it a tab would give it navigation state it has no use for, and would let you
+wander away from a half-finished recording.
 
 ## Where things live
 
@@ -109,12 +107,11 @@ lib/demo/content.ts        ← THE SAMPLE DATA. Edit this to change the demo.
 lib/demo/store.ts          ← state + selectors + actions (replaces Supabase/SQLite/upload queue)
 lib/demo/timings.ts        ← every simulated delay, in one place
 lib/demo/pipeline.ts       ← the scripted upload→processing→ready sequence
-lib/calls/coaching-inbox.ts← pure builder for the Coaching list (+ relative time)
 constants/tokens.ts        ← the entire design system (dark-only)
 hooks/                     ← simulated player, fake recorder
 components/sideline/
-  bottom-nav.tsx           ← the three-option nav (presentational; badge passed in)
-  app-header.tsx           ← wordmark + avatar band, shared by both list screens
+  app-header.tsx           ← wordmark + avatar band
+  home-footer.tsx          ← the ask field + record button under the feed
 components/                ← the rest copied from production, almost unchanged
 ```
 
@@ -130,8 +127,12 @@ the same rep, title and transcript. If you edit one, copy it to the other.
 ### Changing the sample data
 
 Open `lib/demo/content.ts`. Everything is plain objects — people, calls,
-dialogue, summaries, coaching threads. Times are relative (`daysAgo`, `hour`,
-`minute`) and resolved at load, so the feed never goes stale.
+dialogue, summaries. Times are relative (`daysAgo`, `hour`, `minute`) and
+resolved at load, so the feed never goes stale.
+
+The narrative covers a whole workspace, because the web demo needs one. This
+app seeds itself from the slice belonging to `REP_PERSON_ID` — give that person
+more calls in `CALLS` and they show up on the phone.
 
 ### Changing the pacing
 

@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -26,13 +25,9 @@ function initialsFrom(email: string | undefined): string {
  * stacking context as that screen's ScrollView — the list painted straight over
  * it. Navigating sidesteps that entirely, and Account gets a back arrow and no
  * bottom navigation, which is the right shape for a detour out of the app's
- * three primary actions.
- *
- * `children` renders inside the band, below the wordmark row. The Calls screen
- * puts the Admin scope switch there so it stays legible while the feed scrolls
- * underneath.
+ * primary actions.
  */
-export function AppHeader({ children }: { children?: ReactNode }) {
+export function AppHeader() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { session } = useSession();
@@ -56,8 +51,6 @@ export function AppHeader({ children }: { children?: ReactNode }) {
           </View>
         </PressableScale>
       </View>
-
-      {children ? <View style={styles.slot}>{children}</View> : null}
     </View>
   );
 }
@@ -73,7 +66,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  slot: { marginTop: spacing.md },
   avatarTarget: {
     width: 44,
     height: 44,

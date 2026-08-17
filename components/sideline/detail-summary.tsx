@@ -34,22 +34,19 @@ function Bullets({ items }: { items: string[] }) {
 /**
  * First pane: the generated summary followed by the rep's own notes.
  *
- * Notes live on `calls.notes`, so they're the same text the web app shows. The
- * rep who recorded the call can add to them at any time — during the call or
- * days later; an Admin reading someone else's call sees them read-only, because
- * manager input belongs in Feedback.
+ * Notes live on `calls.notes`, so they're the same text the web app shows.
+ * Always editable here — every call on this phone is the rep's own, and they
+ * can add to it at any time, during the visit or days later.
  */
 export function DetailSummary({
   detail,
   notes,
-  canEditNotes,
   onSaveNotes,
   onEditingChange,
   onChatWithNote,
 }: {
   detail: ConversationDetail;
   notes: string | null;
-  canEditNotes: boolean;
   /** Returns an error message, or null on success. */
   onSaveNotes: (next: string) => Promise<string | null>;
   /** Lets the parent disable horizontal paging while the editor has focus. */
@@ -196,23 +193,18 @@ export function DetailSummary({
               tone={notes ? "default" : "muted"}
               style={styles.notesText}
             >
-              {notes ??
-                (canEditNotes
-                  ? "No notes on this call yet."
-                  : "No notes were added for this call.")}
+              {notes ?? "No notes on this call yet."}
             </Text>
-            {canEditNotes ? (
-              <PressableScale
-                onPress={startEditing}
-                accessibilityRole="button"
-                accessibilityLabel={notes ? "Edit notes" : "Add notes"}
-                style={styles.notesEditButton}
-              >
-                <Text variant="label" tone="brand" style={styles.notesActionText}>
-                  {notes ? "Edit notes" : "Add notes"}
-                </Text>
-              </PressableScale>
-            ) : null}
+            <PressableScale
+              onPress={startEditing}
+              accessibilityRole="button"
+              accessibilityLabel={notes ? "Edit notes" : "Add notes"}
+              style={styles.notesEditButton}
+            >
+              <Text variant="label" tone="brand" style={styles.notesActionText}>
+                {notes ? "Edit notes" : "Add notes"}
+              </Text>
+            </PressableScale>
           </>
         )}
       </View>

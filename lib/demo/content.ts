@@ -3,9 +3,9 @@
  *
  * This file is authored once and kept byte-identical in both demo repos
  * (`sideline-web-demo` and `sideline-mobile-demo`). It holds the *story* — the
- * people, the calls, the dialogue, the coaching — in shapes that belong to
- * neither app. Each repo then has a thin adapter that maps this into its own
- * types (`lib/demo/store.ts` in both).
+ * people, the calls, the dialogue — in shapes that belong to neither app. Each
+ * repo then has a thin adapter that maps this into its own types
+ * (`lib/demo/store.ts` in both).
  *
  * Why the indirection: opening the same conversation on the phone and on the
  * web and seeing the same rep, the same title and the same transcript is the
@@ -55,21 +55,7 @@ export interface DemoInsights {
   primaryImprovement: { area: string; suggestion: string };
   objections: string[];
   nextSteps: string[];
-  coachingNote: string;
   customerFollowUpDraft: string;
-}
-
-export interface DemoComment {
-  id: string;
-  authorId: PersonId;
-  body: string;
-  daysAgo: number;
-  hour: number;
-  minute: number;
-  /** Playback offset this message is anchored to, if any. */
-  timestampMs: number | null;
-  /** Root message id for replies; null for a thread root. */
-  parentId: string | null;
 }
 
 export interface DemoCall {
@@ -87,7 +73,6 @@ export interface DemoCall {
   utterances: DemoUtterance[];
   summary?: DemoSummary;
   insights?: DemoInsights;
-  comments: DemoComment[];
 }
 
 /* ------------------------------------------------------------------------ */
@@ -103,9 +88,9 @@ export const ORGANIZATION = {
 /**
  * One Admin and three reps.
  *
- * Dana is the manager — she reviews and coaches rather than selling, which is
- * why she has no calls of her own. The three reps are all Users; the roles in
- * this product are only Admin and User, and every rep is a User.
+ * Dana is the manager — she reviews calls rather than selling, which is why she
+ * has no calls of her own. The three reps are all Users; the roles in this
+ * product are only Admin and User, and every rep is a User.
  */
 export const PEOPLE: DemoPerson[] = [
   {
@@ -142,17 +127,21 @@ export const PEOPLE: DemoPerson[] = [
   },
 ];
 
-/** The two personas the in-app switcher toggles between. */
+/** The two personas the web app's switcher toggles between. */
 export const ADMIN_PERSON_ID: PersonId = "u-dana";
 export const REP_PERSON_ID: PersonId = "u-marcus";
 
 /**
- * WHO THE APP BOOTS AS — the hard-coded "current user".
+ * WHO THE WEB APP BOOTS AS — the hard-coded "current user".
  *
  * Flip this to `REP_PERSON_ID` to launch straight into the regular-user
- * experience: only their own calls, and no rep filter. It can also be changed
- * at runtime on the Account screen ("Viewing as"), which is the faster way to
- * show both sides during a demo.
+ * experience: only their own calls. It can also be changed at runtime on the
+ * Account screen ("Viewing as"), which is the faster way to show both sides
+ * during a demo.
+ *
+ * The mobile app ignores this: it is a rep's personal workspace and always
+ * boots as `REP_PERSON_ID`. Capture and review-your-own-work belong on the
+ * phone; reviewing a team's calls belongs on the desktop.
  *
  * There is deliberately no second `currentUser` object anywhere — this constant
  * and the persona in the store are the only source of truth.
@@ -383,53 +372,9 @@ export const CALLS: DemoCall[] = [
         "Call Wednesday if the homeowner has not.",
         "Include the heat-exchanger photo in the written quote.",
       ],
-      coachingNote:
-        "Textbook safety-first diagnosis. The moment he connected the cold room to the newborn, the whole call changed — that's the transferable skill.",
       customerFollowUpDraft:
         "Ray — good to meet you this morning. Attached are the three options we discussed, along with the photo of the cracked exchanger cell so Linda can see what I saw. My recommendation is still the middle option ($7,900), which includes the upstairs return — that's the piece that actually fixes the cold bedroom. Financing works out to about $130/month at 0% for 60 months. Call me directly if anything smells off before then. — Marcus",
     },
-    comments: [
-      {
-        id: "cm-hollis-1",
-        authorId: "u-dana",
-        body: "Marcus — this is the best call I've listened to this month. Finding the missing return and telling him a new furnace alone wouldn't fix it is exactly right.",
-        daysAgo: 1,
-        hour: 16,
-        minute: 12,
-        timestampMs: 409_000,
-        parentId: null,
-      },
-      {
-        id: "cm-hollis-2",
-        authorId: "u-marcus",
-        body: "Thanks. I almost didn't check the returns — he'd already agreed to the replacement at that point so it would have been an easy sale to just take.",
-        daysAgo: 1,
-        hour: 17,
-        minute: 3,
-        timestampMs: null,
-        parentId: "cm-hollis-1",
-      },
-      {
-        id: "cm-hollis-3",
-        authorId: "u-dana",
-        body: "That's the point though — you'd have had a callback in February about a cold bedroom and a customer who didn't trust you. Well played.",
-        daysAgo: 1,
-        hour: 17,
-        minute: 20,
-        timestampMs: null,
-        parentId: "cm-hollis-1",
-      },
-      {
-        id: "cm-hollis-4",
-        authorId: "u-dana",
-        body: "One coaching point: at 9:06 you offer to hold Thursday, he pushes back, and you drop it immediately. Try offering the hold a second time as a no-obligation thing. 'I'll hold it, cancel any time, costs you nothing.' You'd close a chunk of these on the spot.",
-        daysAgo: 0,
-        hour: 8,
-        minute: 55,
-        timestampMs: 546_000,
-        parentId: null,
-      },
-    ],
   },
   {
     id: "call-brennan",
@@ -481,33 +426,9 @@ export const CALLS: DemoCall[] = [
         "Carrier authorisation form.",
         "Re-inspection scheduling.",
       ],
-      coachingNote:
-        "Conceding the ridge-vent point was the strongest move in the call. Reps who argue every point lose the ones that matter.",
       customerFollowUpDraft:
         "Hi — attached is the full photo report from today's inspection, including the test-square documentation showing roughly 30 hail impacts per 10x10 on the north and west slopes. I've also included the authorisation form so I can speak with your carrier directly and attend the re-inspection. — Priya",
     },
-    comments: [
-      {
-        id: "cm-brennan-1",
-        authorId: "u-dana",
-        body: "Admitting the ridge vent issue was the right call and I want the rest of the team to hear how you did it. Can I use this clip in Monday's meeting?",
-        daysAgo: 1,
-        hour: 17,
-        minute: 40,
-        timestampMs: 535_000,
-        parentId: null,
-      },
-      {
-        id: "cm-brennan-2",
-        authorId: "u-priya",
-        body: "Of course. Fair warning, I say 'um' about forty times.",
-        daysAgo: 1,
-        hour: 18,
-        minute: 2,
-        timestampMs: null,
-        parentId: "cm-brennan-1",
-      },
-    ],
   },
   {
     id: "call-castellanos",
@@ -534,9 +455,8 @@ export const CALLS: DemoCall[] = [
         "Send confirmation and arrival window.",
       ],
     },
-    // No coaching yet — deliberately, so the Coaching inbox has an example of a
-    // call that hasn't been reviewed.
-    comments: [],
+    // Deliberately no insights pass: the demo needs one call that has been
+    // summarised but not yet analysed.
   },
 ];
 
@@ -657,8 +577,6 @@ export const FRESH_CALL_CONTENT: {
     },
     objections: ["Already has a competing quote in hand."],
     nextSteps: ["Complete inspection.", "Return with photos and findings."],
-    coachingNote:
-      "Strong open. The 'photos either way' commitment is a good habit — it costs nothing and it is the thing homeowners remember.",
     customerFollowUpDraft:
       "Thanks for your time this morning. As promised, I've attached the photos from the crawlspace inspection along with what I found. Happy to walk through it whenever suits you both.",
   },

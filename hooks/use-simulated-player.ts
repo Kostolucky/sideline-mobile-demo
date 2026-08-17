@@ -29,7 +29,7 @@ export interface SimulatedPlayer {
  * Expo Go with no native modules at all. So a timer advances a position against
  * the call's known duration, and everything downstream (the scrubber, the
  * position readout, transcript highlighting and auto-follow, and seeking from a
- * timestamped coaching message) behaves exactly as it would with real audio.
+ * transcript line) behaves exactly as it would with real audio.
  *
  * The shape is deliberately identical to expo-audio's, so swapping a real
  * player back in is a two-line change in `app/call/[id].tsx`.

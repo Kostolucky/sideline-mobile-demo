@@ -19,10 +19,9 @@ export function homeFooterPadding(insetBottom: number): number {
  * The home footer: an ask field and a new-recording button.
  *
  * This replaced the three-option tab bar. Calls is the only destination the app
- * has — coaching lives inside a call, next to the transcript it is about — so a
- * tab bar was navigating between one place and a screen that duplicated it.
- * What belongs at the bottom of a list is what you do next: ask something, or
- * capture something.
+ * has, so a tab bar was navigating between one place and screens that
+ * duplicated it. What belongs at the bottom of a list is what you do next: ask
+ * something, or capture something.
  *
  * The field is inert for now. The `+` starts a recording, which is what "new"
  * means here, and keeps the brand green the old floating button had.

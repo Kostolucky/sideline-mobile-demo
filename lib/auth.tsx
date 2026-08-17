@@ -6,43 +6,25 @@
  * and the root layout refuses to render anything until both settle.
  *
  * None of that exists here. `useSession()` returns a signed-in person
- * immediately, and which person that is comes from the demo store's persona.
- * The interface is kept identical (`session`, `membership`, `isLoading`,
- * `signOut`) so the screens copied from production compile untouched.
+ * immediately, and that person is always the rep whose workspace this app is
+ * (see `lib/demo/store.ts`). There is no role and no membership to resolve,
+ * because nothing on the phone branches on either: a rep sees their own calls,
+ * which is the only thing this client can show.
  */
 
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 
 import { useDemoState } from "@/lib/demo/use-demo";
-import { setPersona } from "@/lib/demo/store";
-import { ADMIN_PERSON_ID, REP_PERSON_ID } from "@/lib/demo/content";
-
-export type MemberRole = "admin" | "member";
-
-/** Fails closed, exactly as production does. */
-export function toMemberRole(role: string): MemberRole {
-  return role === "admin" ? "admin" : "member";
-}
-
-export interface Membership {
-  organizationId: string;
-  role: MemberRole;
-  status: string;
-}
 
 /** The slice of a Supabase session the UI actually reads. */
 export interface DemoSession {
-  user: { id: string; email: string };
+  user: { id: string; email: string; name: string };
 }
 
 interface AuthState {
   session: DemoSession | null;
-  membership: Membership | null;
   isLoading: boolean;
   authError: string | null;
-  /** Demo-only: swap which person you are looking at the product as. */
-  setPersonaId: (id: string) => void;
-  personaIds: { admin: string; rep: string };
   signOut: () => void;
 }
 
@@ -51,27 +33,22 @@ const AuthContext = createContext<AuthState | null>(null);
 export function SessionProvider({ children }: { children: ReactNode }) {
   const state = useDemoState();
 
-  const value = useMemo<AuthState>(() => {
-    const member = state.members.find((m) => m.userId === state.personaId);
-    return {
-      session: member
-        ? { user: { id: member.userId, email: member.email } }
-        : null,
-      membership: member
-        ? {
-            organizationId: state.organizationId,
-            role: member.role,
-            status: "active",
-          }
-        : null,
+  const value = useMemo<AuthState>(
+    () => ({
+      session: {
+        user: {
+          id: state.user.userId,
+          email: state.user.email,
+          name: state.user.name,
+        },
+      },
       isLoading: false,
       authError: null,
-      setPersonaId: setPersona,
-      personaIds: { admin: ADMIN_PERSON_ID, rep: REP_PERSON_ID },
       // Nothing to sign out of; the screen navigates to /sign-in instead.
       signOut: () => {},
-    };
-  }, [state]);
+    }),
+    [state],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

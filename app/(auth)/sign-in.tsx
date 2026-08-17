@@ -41,7 +41,7 @@ export default function SignInScreen() {
           Sideline
         </Text>
         <Text variant="body" tone="muted" style={styles.subtitle}>
-          Record your in-person sales conversations and get instant coaching.
+          Record your in-person sales conversations and get instant summaries.
         </Text>
       </View>
 
