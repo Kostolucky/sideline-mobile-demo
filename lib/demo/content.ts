@@ -461,26 +461,6 @@ export const CALLS: DemoCall[] = [
 ];
 
 /* ------------------------------------------------------------------------ */
-/* Teams                                                                      */
-/* ------------------------------------------------------------------------ */
-
-export interface DemoTeam {
-  id: string;
-  name: string;
-  memberIds: PersonId[];
-  managerIds: PersonId[];
-}
-
-export const TEAMS: DemoTeam[] = [
-  {
-    id: "team-north",
-    name: "North Territory",
-    memberIds: ["u-marcus", "u-priya", "u-tomas"],
-    managerIds: ["u-dana"],
-  },
-];
-
-/* ------------------------------------------------------------------------ */
 /* Other organizations — for the platform-owner provisioning console          */
 /* ------------------------------------------------------------------------ */
 
