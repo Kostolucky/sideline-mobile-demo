@@ -62,7 +62,6 @@ one.
 | Playback | **Simulated.** A clock drives the scrubber and transcript highlighting. |
 | Transcript and summary | Real content, hardcoded. Nothing is generated. |
 | Notes and renames | Real, stored in memory for the session. |
-| Chat with note | **Simulated.** The reply is the call's authored follow-up draft, streamed in. |
 
 State lives in memory. **Reload the app and the sample data is pristine again** —
 which is what you want between demos. There is also a *Reset demo data* button
@@ -80,15 +79,19 @@ app/_layout.tsx          root Stack
 ├── index.tsx            Calls — the rep's own feed, and the landing screen
 ├── record.tsx           modal, slides up over the feed
 ├── call/[id].tsx        call detail (Summary / Recording panes)
-├── chat/[id].tsx        "Chat with note", opened from a call's Summary pane
 ├── account.tsx          pushed screen: back arrow
 └── (auth)/sign-in.tsx   reachable, never gating
 ```
 
 There is no tab bar. It used to carry **Calls · Record · Coaching**, which
 navigated between one real place, an action, and an inbox that duplicated the
-feed. What sits at the bottom of the feed now is what you do next — ask
-something, or record something (`HomeFooter`).
+feed. What sits at the bottom of the feed now is the one thing you do next —
+record a call (`HomeFooter`).
+
+The app also had a **Chat with note** screen, reached from a pill floating over
+the Summary pane. It streamed an authored reply back, which demoed well but
+answered questions nobody had asked yet; the summary already says what the call
+covered. It is gone, and Summary now scrolls clean to its last line.
 
 **Account is a screen, not a sheet.** It began as a bottom sheet rendered inside
 whichever list screen you were on, which put it in the same stacking context as
