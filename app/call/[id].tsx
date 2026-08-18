@@ -275,9 +275,6 @@ export default function ConversationDetailScreen() {
             notes={detail.call.notes}
             onSaveNotes={saveNotes}
             onEditingChange={(editing) => setPagingEnabled(!editing)}
-            onChatWithNote={() =>
-              router.push({ pathname: "/chat/[id]", params: { id: detail.call.id } })
-            }
           />
         </View>
         <View style={{ width }}>

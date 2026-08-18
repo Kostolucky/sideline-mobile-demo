@@ -1,8 +1,8 @@
-import { StyleSheet, TextInput, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-import { colors, radius, spacing, type } from "@/constants/tokens";
+import { colors, radius, spacing } from "@/constants/tokens";
 import { PressableScale } from "@/components/ui/pressable-scale";
 
 /** Height of the footer's controls, above the safe-area inset. */
@@ -16,15 +16,16 @@ export function homeFooterPadding(insetBottom: number): number {
 }
 
 /**
- * The home footer: an ask field and a new-recording button.
+ * The home footer: a single button that starts a recording.
  *
  * This replaced the three-option tab bar. Calls is the only destination the app
  * has, so a tab bar was navigating between one place and screens that
- * duplicated it. What belongs at the bottom of a list is what you do next: ask
- * something, or capture something.
+ * duplicated it. What belongs at the bottom of a list is what you do next, and
+ * on this screen there is exactly one thing: capture a call.
  *
- * The field is inert for now. The `+` starts a recording, which is what "new"
- * means here, and keeps the brand green the old floating button had.
+ * It sat beside an "Ask anything" field for a while, but nothing answered it,
+ * so it promised a conversation the app could not hold. The `+` keeps the brand
+ * green the old floating button had.
  */
 export function HomeFooter({ onNew }: { onNew: () => void }) {
   const insets = useSafeAreaInsets();
@@ -36,19 +37,6 @@ export function HomeFooter({ onNew }: { onNew: () => void }) {
         { paddingBottom: Math.max(spacing.lg, insets.bottom) },
       ]}
     >
-      <View style={styles.field}>
-        <TextInput
-          editable={false}
-          placeholder="Ask anything"
-          placeholderTextColor={colors.mutedForeground}
-          accessibilityLabel="Ask anything"
-          style={styles.input}
-        />
-        <View style={styles.mic}>
-          <Ionicons name="mic" size={16} color={colors.mutedForeground} />
-        </View>
-      </View>
-
       <PressableScale
         onPress={onNew}
         accessibilityRole="button"
@@ -64,37 +52,11 @@ export function HomeFooter({ onNew }: { onNew: () => void }) {
 const styles = StyleSheet.create({
   bar: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
+    // The button keeps the right edge it held when the ask field sat beside it.
+    justifyContent: "flex-end",
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.md,
     backgroundColor: colors.background,
-  },
-  field: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    height: CONTROL_HEIGHT,
-    paddingLeft: spacing.xl,
-    paddingRight: spacing.xs,
-    borderRadius: radius.full,
-    backgroundColor: colors.secondary,
-  },
-  input: {
-    flex: 1,
-    ...type.body,
-    color: colors.foreground,
-    // The field is not yet wired to anything, so it must not take focus and
-    // raise a keyboard over a screen that can't answer.
-    paddingVertical: 0,
-  },
-  mic: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.full,
-    backgroundColor: colors.card,
-    alignItems: "center",
-    justifyContent: "center",
   },
   new: {
     width: CONTROL_HEIGHT,

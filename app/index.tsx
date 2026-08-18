@@ -22,8 +22,8 @@ import type { LocalRecording } from "@/lib/recording/types";
  * Everything on this screen belongs to the person holding the phone: there is
  * no scope switch, no rep filter and no way to reach anyone else's work. That
  * lives on the web, where a manager reviews a team. Here the feed is simply
- * "what I recorded", and what sits at the bottom is what you do next — ask
- * something, or record something. See `HomeFooter`.
+ * "what I recorded", and what sits at the bottom is what you do next — record
+ * something. See `HomeFooter`.
  */
 export default function CallsScreen() {
   const router = useRouter();
